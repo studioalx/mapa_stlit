@@ -183,11 +183,11 @@ with tabs[1]:
     # gdf_pandas_br.codarea = gdf_br.codarea.astype(str)
     ocorrencias_br = dados_atlas_query_br.groupby(['uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
     ocorrencias_br['cod_uf'] = ocorrencias_br.uf.map(codigo_estados)
-    print(ocorrencias_br.query("cod_uf == '11'"))
+    # print(ocorrencias_br.query("cod_uf == '11'"))
     ocorrencias_merge_br = gdf_pandas_br.merge(ocorrencias_br, how='left', left_on='codarea', right_on='cod_uf')
     ocorrencias_merge_br.loc[np.isnan(ocorrencias_merge_br["ocorrencias"]), 'ocorrencias'] = 0
     classificacao_ocorrencias_br = classifica_risco(ocorrencias_merge_br, 'ocorrencias')
-    print(classificacao_ocorrencias_br.head())
+    # print(classificacao_ocorrencias_br.head())
     fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_estados_br, locais='codarea', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='uf')
     col_mapa_br.plotly_chart(fig_mapa_br, use_container_width=True)
 
