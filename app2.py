@@ -178,16 +178,22 @@ with tabs[1]:
 
     # MAPA
     malha_estados_br = carrega_malha(tipo='paises', uf='BR', intrarregiao='UF')
-    # gdf_br = gpd.GeoDataFrame.from_features(malha_mun_estados)
-    # gdf_pandas_br = pd.DataFrame(gdf_br['codarea'])
+    gdf_br = gpd.GeoDataFrame.from_features(malha_estados_br)
+    gdf_pandas_br = pd.DataFrame(gdf_br['codarea'])
+    # gdf_pandas_br.codarea = gdf_br.codarea.astype(str)
     ocorrencias_br = dados_atlas_query_br.groupby(['uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
-    # ocorrencias_br.uf = ocorrencias_br.uf.map(codigo_estados)
     ocorrencias_br['cod_uf'] = ocorrencias_br.uf.map(codigo_estados)
-    # ocorrencias_merge_br = gdf_pandas_br.merge(ocorrencias_br, how='left', left_on='codarea', right_on='uf')
-    # ocorrencias_merge_br.loc[np.isnan(ocorrencias_merge_br["ocorrencias"]), 'ocorrencias'] = 0
-    classificacao_ocorrencias_br = classifica_risco(ocorrencias_br, 'ocorrencias')
-    fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_estados_br, locais='cod_uf', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='uf')
+    print(ocorrencias_br.query("cod_uf == '11'"))
+    ocorrencias_merge_br = gdf_pandas_br.merge(ocorrencias_br, how='left', left_on='codarea', right_on='cod_uf')
+    ocorrencias_merge_br.loc[np.isnan(ocorrencias_merge_br["ocorrencias"]), 'ocorrencias'] = 0
+    classificacao_ocorrencias_br = classifica_risco(ocorrencias_merge_br, 'ocorrencias')
+    print(classificacao_ocorrencias_br.head())
+    fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_estados_br, locais='codarea', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='uf')
     col_mapa_br.plotly_chart(fig_mapa_br, use_container_width=True)
+
+
+    # ABAS DOS GRAFICOS
+    grafico_linha, grafico_barra = st.tabs(['Ocorrências ao longo dos anos', 'Nova seção'])
 
 
     # LINEPLOT
@@ -198,7 +204,11 @@ with tabs[1]:
         title_x=0.15,
         title_y=0.9
     )
-    col_dados_br.plotly_chart(fig_line_br)
+    with grafico_linha:
+        col_dados_br.plotly_chart(fig_line_br)
+    
+    with grafico_barra:
+        st.write('dale')
 
     # DATAFRAME E DOWNLOAD
     expander_br = col_dados_br.expander('**Tabela com os dados selecionados**')
