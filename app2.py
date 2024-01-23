@@ -2,14 +2,14 @@ import requests
 import numpy as np
 import pandas as pd
 import streamlit as st
-import geopandas as gpd
+# import geopandas as gpd
 import plotly.express as px
 
 # -------------------- CONFIGURAÇÕES ----------------------
 titulo_pagina = 'Mapa de Desastres Climáticos no Brasil'
 layout = 'wide'
 st.set_page_config(page_title=titulo_pagina, layout=layout)
-# st.title(titulo_pagina)
+st.title(titulo_pagina)
 # ---------------------------------------------------------
 
 # ----- OPÇÕES DO DROPDOWN
