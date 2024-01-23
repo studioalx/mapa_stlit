@@ -66,7 +66,7 @@ def classifica_risco(df, col_ocorrencias):
 #         malha1['features'].append(feature)
 #     return malha1
 
-def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, nome_hover=None, dados_hover=None, lista_cores=None, lat=-14, lon=-53, zoom=3):
+def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, nome_hover=None, dados_hover=None, lista_cores=None, lat=-14, lon=-53, zoom=3, titulo_legenda='Risco'):
     fig = px.choropleth_mapbox(
         df, geojson=malha, color=cor,
         color_continuous_scale=tons,
@@ -89,7 +89,7 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, nome_hover
             font=dict(size=14),
             title=dict(
                 font=dict(size=16),
-                text='Risco'
+                text=titulo_legenda
             )
         )
     )
@@ -137,8 +137,8 @@ codigo_estados = {
     'RJ': '33', 'RN': '24', 'RO': '11', 'RR': '14', 'RS': '43', 'SC': '42', 'SE': '28', 'SP': '35', 'TO': '17'
 }
 desastres = {
-    'Climatológico': ['Estiagem e Seca', 'Incêndio Florestal', 'Onda de Calor e Baixa Umidade', 'Onda de Frio'],
     'Hidrológico': ['Alagamentos', 'Chuvas Intensas', 'Enxurradas', 'Inundações', 'Movimento de Massa'],
+    'Climatológico': ['Estiagem e Seca', 'Incêndio Florestal', 'Onda de Calor e Baixa Umidade', 'Onda de Frio'],
     'Meteorológico': ['Granizo', 'Onda de Frio', 'Tornado', 'Vendavais e Ciclones'],
     'Outros': ['Doenças infecciosas', 'Erosão', 'Onda de Calor e Baixa Umidade', 'Outros', 'Rompimento/Colapso de barragens']
 }
@@ -190,7 +190,7 @@ with tabs[0]:
     tipol_merge.loc[np.isnan(tipol_merge["ocorrencias"]), 'ocorrencias'] = 0
     tipol_merge.desastre_mais_comum = tipol_merge.desastre_mais_comum.fillna('Sem Dados')
     col_mapa.subheader('Mapa colorido por desastre mais comum')
-    col_mapa.plotly_chart(cria_mapa(tipol_merge, malha_mun_estados, locais='code_muni', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_muni', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=5, lat=lat, lon=lon), use_container_width=True)
+    col_mapa.plotly_chart(cria_mapa(tipol_merge, malha_mun_estados, locais='code_muni', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_muni', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=5, lat=lat, lon=lon, titulo_legenda='Desastre mais comum'), use_container_width=True)
 
 
 
@@ -205,7 +205,7 @@ with tabs[0]:
     ocorrencias_merge = merge_muni.merge(ocorrencias, how='left', left_on='code_muni', right_on='ibge')
     ocorrencias_merge.loc[np.isnan(ocorrencias_merge["ocorrencias"]), 'ocorrencias'] = 0
     classificacao_ocorrencias = classifica_risco(ocorrencias_merge, 'ocorrencias')
-    fig_mapa = cria_mapa(classificacao_ocorrencias, malha_mun_estados, locais='code_muni', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_muni', lat=lat, lon=lon, zoom=5)
+    fig_mapa = cria_mapa(classificacao_ocorrencias, malha_mun_estados, locais='code_muni', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_muni', lat=lat, lon=lon, zoom=5, titulo_legenda=f'Risco de {tipologia_selecionada}')
     col_mapa.subheader('Mapa colorido por risco de desastre')
     col_mapa.plotly_chart(fig_mapa, use_container_width=True)
 
@@ -282,7 +282,7 @@ with tabs[1]:
     tipol_merge_br.loc[np.isnan(tipol_merge_br['ocorrencias']), 'ocorrencias'] = 0
     tipol_merge_br.desastre_mais_comum = tipol_merge_br.desastre_mais_comum.fillna('Sem Dados')
     col_mapa_br.subheader('Mapa colorido por desastre mais comum')
-    col_mapa_br.plotly_chart(cria_mapa(tipol_merge_br, malha_estados_br, locais='cod_uf', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_state', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=3), use_container_width=True)
+    col_mapa_br.plotly_chart(cria_mapa(tipol_merge_br, malha_estados_br, locais='cod_uf', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_state', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=3, titulo_legenda='Desastre mais comum'), use_container_width=True)
 
 
     dados_atlas_query_br_2 = dados_atlas_query_br_1.query("descricao_tipologia == @tipologia_selecionada_br")
@@ -298,7 +298,7 @@ with tabs[1]:
     ocorrencias_merge_br = merge_br.merge(ocorrencias_br, how='left', left_on='code_state', right_on='cod_uf')
     ocorrencias_merge_br.loc[np.isnan(ocorrencias_merge_br["ocorrencias"]), 'ocorrencias'] = 0
     classificacao_ocorrencias_br = classifica_risco(ocorrencias_merge_br, 'ocorrencias')
-    fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_estados_br, locais='code_state', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_state')
+    fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_estados_br, locais='code_state', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_state', titulo_legenda=f'Risco de {tipologia_selecionada_br}')
     col_mapa_br.plotly_chart(fig_mapa_br, use_container_width=True)
 
 
