@@ -171,6 +171,7 @@ with tabs[0]:
     )
     fig_grupo_desastre.update_layout(showlegend=False, legend_orientation='h', margin={"r":0,"t":0,"l":0,"b":0})
     fig_grupo_desastre.update_xaxes(showgrid=True)
+    col_dados.caption('Quanto maior o círculo, maior o número de ocorrências do desastre')
     col_dados.plotly_chart(fig_grupo_desastre)
 
 
@@ -189,7 +190,7 @@ with tabs[0]:
     tipol_merge = merge_muni_2.merge(tipologias_mais_comuns_por_muni, how='left', left_on='code_muni', right_on='ibge').drop('ibge', axis=1)
     tipol_merge.loc[np.isnan(tipol_merge["ocorrencias"]), 'ocorrencias'] = 0
     tipol_merge.desastre_mais_comum = tipol_merge.desastre_mais_comum.fillna('Sem Dados')
-    col_mapa.subheader('Mapa colorido por desastre mais comum')
+    col_mapa.subheader('Desastre mais comum por município	')
     col_mapa.plotly_chart(cria_mapa(tipol_merge, malha_mun_estados, locais='code_muni', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_muni', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=5, lat=lat, lon=lon, titulo_legenda='Desastre mais comum'), use_container_width=True)
 
 
@@ -206,7 +207,8 @@ with tabs[0]:
     ocorrencias_merge.loc[np.isnan(ocorrencias_merge["ocorrencias"]), 'ocorrencias'] = 0
     classificacao_ocorrencias = classifica_risco(ocorrencias_merge, 'ocorrencias')
     fig_mapa = cria_mapa(classificacao_ocorrencias, malha_mun_estados, locais='code_muni', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_muni', lat=lat, lon=lon, zoom=5, titulo_legenda=f'Risco de {tipologia_selecionada}')
-    col_mapa.subheader('Mapa colorido por risco de desastre')
+    col_mapa.divider()
+    col_mapa.subheader(f'Risco de {tipologia_selecionada} em {uf_selecionado}')
     col_mapa.plotly_chart(fig_mapa, use_container_width=True)
 
 
@@ -230,6 +232,7 @@ with tabs[0]:
 
     # LINEPLOT
     ocorrencias_ano = dados_atlas_query.groupby('ano', as_index=False).size().rename(columns={'size': 'ocorrencias'})
+    st.divider()
     st.subheader(f'Ocorrências de *{tipologia_selecionada}* em *{uf_selecionado}* ao longo dos anos')
     fig_line = px.line(ocorrencias_ano, 'ano', 'ocorrencias', markers=True, labels={'ocorrencias': f'Casos de {tipologia_selecionada}', 'ano': 'Ano'}, color_discrete_sequence=[mapa_de_cores[tipologia_selecionada]])
     # fig_line.update_layout(
@@ -263,6 +266,7 @@ with tabs[1]:
     )
     fig_grupo_desastre_br.update_layout(showlegend=False, legend_orientation='h', margin={"r":0,"t":0,"l":0,"b":0})
     fig_grupo_desastre_br.update_xaxes(showgrid=True)
+    col_dados_br.caption('Quanto maior o círculo, maior o número de ocorrências do desastre')
     col_dados_br.plotly_chart(fig_grupo_desastre_br)
 
 
@@ -281,15 +285,16 @@ with tabs[1]:
     tipol_merge_br = tipol_br.merge(tipologias_mais_comuns_por_estado, how='left', left_on='code_state', right_on='cod_uf').drop('code_state', axis=1)
     tipol_merge_br.loc[np.isnan(tipol_merge_br['ocorrencias']), 'ocorrencias'] = 0
     tipol_merge_br.desastre_mais_comum = tipol_merge_br.desastre_mais_comum.fillna('Sem Dados')
-    col_mapa_br.subheader('Mapa colorido por desastre mais comum')
+    col_mapa_br.subheader('Desastre mais comum por estado')
     col_mapa_br.plotly_chart(cria_mapa(tipol_merge_br, malha_estados_br, locais='cod_uf', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_state', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=3, titulo_legenda='Desastre mais comum'), use_container_width=True)
 
 
     dados_atlas_query_br_2 = dados_atlas_query_br_1.query("descricao_tipologia == @tipologia_selecionada_br")
 
 
-    # MAPA RISCO    
-    col_mapa_br.subheader('Mapa colorido por risco de desastre')
+    # MAPA RISCO 
+    col_mapa_br.divider()  
+    col_mapa_br.subheader(f'Risco de {tipologia_selecionada_br} no Brasil')
     malha_estados_br = carrega_malha(tipo='paises', uf='BR', intrarregiao='UF')
     ocorrencias_br = dados_atlas_query_br_2.groupby(['uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
     ocorrencias_br['cod_uf'] = ocorrencias_br.uf.map(codigo_estados)
@@ -321,6 +326,7 @@ with tabs[1]:
 
     # LINEPLOT
     ocorrencias_ano_br = dados_atlas_query_br_2.groupby('ano', as_index=False).size().rename(columns={'size': 'ocorrencias'})
+    st.divider()
     st.subheader(f'Ocorrências de *{tipologia_selecionada_br}* no Brasil ao longo dos anos')
     fig_line_br = px.line(ocorrencias_ano_br, 'ano', 'ocorrencias', markers=True, labels={'ocorrencias': f'Casos de {tipologia_selecionada_br}', 'ano': 'Ano'}, color_discrete_sequence=[mapa_de_cores[tipologia_selecionada_br]])
     # fig_line.update_layout(
