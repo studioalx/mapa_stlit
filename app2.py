@@ -1,8 +1,8 @@
+import json
 import requests
 import numpy as np
 import pandas as pd
 import streamlit as st
-# import geopandas as gpd
 import plotly.express as px
 
 # -------------------- CONFIGURAÇÕES ----------------------
@@ -12,10 +12,15 @@ st.set_page_config(page_title=titulo_pagina, layout=layout)
 st.title(titulo_pagina)
 # ---------------------------------------------------------
 
-# ----- OPÇÕES DO DROPDOWN
-estados = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO']
+
 
 # ----- FUNÇÕES
+@st.cache_data
+def carrega_geojson(caminho):
+    with open(caminho, 'r') as f:
+        geoj = json.load(f)
+    return geoj
+
 @st.cache_data
 def carrega_dados(caminho_arquivo):
     df = pd.read_csv(caminho_arquivo)
@@ -60,18 +65,13 @@ def classifica_risco(df, col_ocorrencias):
     df['risco'] = risco
     return df
 
-# @st.cache_data
-# def unir_malhas(malha1, malha2):
-#     for feature in malha2['features']:
-#         malha1['features'].append(feature)
-#     return malha1
 
-def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, nome_hover=None, dados_hover=None, lista_cores=None, lat=-14, lon=-53, zoom=3, titulo_legenda='Risco'):
+def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, nome_hover=None, dados_hover=None, lista_cores=None, lat=-14, lon=-53, zoom=3, titulo_legenda='Risco', featureid='properties.codarea'):
     fig = px.choropleth_mapbox(
         df, geojson=malha, color=cor,
         color_continuous_scale=tons,
         color_discrete_map=lista_cores,
-        locations=locais, featureidkey='properties.codarea',
+        locations=locais, featureidkey=featureid,
         center={'lat': lat, 'lon': lon}, zoom=zoom, 
         mapbox_style='carto-positron', height=500,
         hover_name=nome_hover, hover_data=dados_hover
@@ -79,7 +79,7 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, nome_hover
 
     fig.update_layout(
         margin={"r":0,"t":0,"l":0,"b":0},
-        mapbox_bounds={"west": -90, "east": -30, "south": -35, "north": 10},
+        mapbox_bounds={"west": -100, "east": -20, "south": -60, "north": 20},
         legend=dict(
             yanchor="top",
             y=0.99,
@@ -97,13 +97,18 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, nome_hover
     
     return fig
 
+
+
 # VARIAVEIS
-dados_atlas = carrega_parquet('dados_atlas_desastres.parquet')
-dados_merge = carrega_parquet('municipios_brasileiros.parquet')
+dados_atlas = carrega_parquet('dados_desastres_ams.parquet')
+dados_merge = carrega_parquet('ams+muni_br.parquet')
 coord_uf = carrega_parquet('coord_uf.parquet')
 pop_pib = carrega_parquet('pop_pib_muni.parquet')
 pop_pib_uf = carrega_parquet('pop_pib_uf.parquet')
+malha_america = carrega_geojson('ams+br_uf.json')
 
+estados = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO']
+anos = dados_atlas.ano.unique()
 mapa_de_cores = {
     'Estiagem e Seca': '#EECA3B',
     'Incêndio Florestal': '#E45756',
@@ -143,9 +148,6 @@ desastres = {
     'Outros': ['Doenças infecciosas', 'Erosão', 'Onda de Calor e Baixa Umidade', 'Outros', 'Rompimento/Colapso de barragens']
 }
 
-anos = dados_atlas.ano.unique()
-
-
 # COLUNAS
 tabs = st.tabs(['UF', "Brasil"])
 
@@ -153,13 +155,19 @@ with tabs[0]:
     col_mapa, col_dados = st.columns([1, 1], gap='large')
     select1, select2 = col_dados.columns([1, 1])
 
+
+
     # SELECTBOX
     uf_selecionado = select1.selectbox('Selecione o estado', estados, index = 23)
     grupo_desastre_selecionado = select2.selectbox('Selecione o grupo de desastre', list(desastres.keys()), index=0)
     ano_inicial, ano_final = col_dados.select_slider('Selecione o período', anos, value=(anos[0], anos[-1]))
 
+
+
     # BUBBLE PLOT
     atlas_year = dados_atlas.query("grupo_de_desastre == @grupo_desastre_selecionado & uf == @uf_selecionado & ano >= @ano_inicial & ano <= @ano_final").groupby(['ano', 'descricao_tipologia'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
+
+
 
     fig_grupo_desastre = px.scatter(atlas_year, x="ano", y='descricao_tipologia', size='ocorrencias', 
         color='descricao_tipologia', size_max=50, color_discrete_map=mapa_de_cores,
@@ -175,8 +183,11 @@ with tabs[0]:
     col_dados.plotly_chart(fig_grupo_desastre)
 
 
+
     # selecionando estado
     tipologia_selecionada = col_dados.selectbox('Selecione a tipologia do desastre', desastres[grupo_desastre_selecionado], index=0)
+
+
 
     # MALHA
     malha_mun_estados = carrega_malha(uf=uf_selecionado)
@@ -212,6 +223,7 @@ with tabs[0]:
     col_mapa.plotly_chart(fig_mapa, use_container_width=True)
 
 
+
     # MÉTRICAS
     met1, met2, met3 = col_dados.columns([1, 1, 1])
     met1.metric('Total de ocorrências', len(dados_atlas_query))
@@ -240,6 +252,7 @@ with tabs[0]:
     #     title_y=0.9
     # )
     st.plotly_chart(fig_line, use_container_width=True)    
+
 
 
 with tabs[1]:
@@ -279,14 +292,15 @@ with tabs[1]:
 
 
     # MAPA DE DESASTRES COMUNS
-    tipologias_mais_comuns_por_estado = dados_atlas_query_br_1.groupby(['uf', 'descricao_tipologia'], as_index=False).size().sort_values('size', ascending=False).drop_duplicates(subset='uf', keep='first').rename(columns={'size': 'ocorrencias', 'descricao_tipologia': 'desastre_mais_comum'})
-    tipologias_mais_comuns_por_estado['cod_uf'] = tipologias_mais_comuns_por_estado.uf.map(codigo_estados)
+    tipologias_mais_comuns_por_estado = dados_atlas_query_br_1.groupby(['cod_uf', 'descricao_tipologia'], as_index=False).size().sort_values('size', ascending=False).drop_duplicates(subset='cod_uf', keep='first').rename(columns={'size': 'ocorrencias', 'descricao_tipologia': 'desastre_mais_comum'})
+    # tipologias_mais_comuns_por_estado['cod_uf'] = tipologias_mais_comuns_por_estado.uf.map(codigo_estados)
     tipol_br = dados_merge.groupby(['code_state', 'name_state'], as_index=False).size().drop('size', axis=1)
-    tipol_merge_br = tipol_br.merge(tipologias_mais_comuns_por_estado, how='left', left_on='code_state', right_on='cod_uf').drop('code_state', axis=1)
+    print(tipol_br.name_state.unique())
+    tipol_merge_br = tipol_br.merge(tipologias_mais_comuns_por_estado, how='left', left_on='code_state', right_on='cod_uf').drop('cod_uf', axis=1)
     tipol_merge_br.loc[np.isnan(tipol_merge_br['ocorrencias']), 'ocorrencias'] = 0
     tipol_merge_br.desastre_mais_comum = tipol_merge_br.desastre_mais_comum.fillna('Sem Dados')
     col_mapa_br.subheader('Desastre mais comum por estado')
-    col_mapa_br.plotly_chart(cria_mapa(tipol_merge_br, malha_estados_br, locais='cod_uf', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_state', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=3, titulo_legenda='Desastre mais comum'), use_container_width=True)
+    col_mapa_br.plotly_chart(cria_mapa(tipol_merge_br, malha_america, locais='code_state', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_state', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=3, titulo_legenda='Desastre mais comum'), use_container_width=True)
 
 
     dados_atlas_query_br_2 = dados_atlas_query_br_1.query("descricao_tipologia == @tipologia_selecionada_br")
@@ -295,15 +309,15 @@ with tabs[1]:
     # MAPA RISCO 
     col_mapa_br.divider()  
     col_mapa_br.subheader(f'Risco de {tipologia_selecionada_br} no Brasil')
-    malha_estados_br = carrega_malha(tipo='paises', uf='BR', intrarregiao='UF')
-    ocorrencias_br = dados_atlas_query_br_2.groupby(['uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
-    ocorrencias_br['cod_uf'] = ocorrencias_br.uf.map(codigo_estados)
-    print(ocorrencias_br.head())
+    # malha_estados_br = carrega_malha(tipo='paises', uf='BR', intrarregiao='UF')
+    # modifiquei uf para cod_uf
+    ocorrencias_br = dados_atlas_query_br_2.groupby(['cod_uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
+    # ocorrencias_br['cod_uf'] = ocorrencias_br.uf.map(codigo_estados)
     merge_br = dados_merge.groupby(['code_state', 'name_state'], as_index=False).size().drop('size', axis=1)
     ocorrencias_merge_br = merge_br.merge(ocorrencias_br, how='left', left_on='code_state', right_on='cod_uf')
     ocorrencias_merge_br.loc[np.isnan(ocorrencias_merge_br["ocorrencias"]), 'ocorrencias'] = 0
     classificacao_ocorrencias_br = classifica_risco(ocorrencias_merge_br, 'ocorrencias')
-    fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_estados_br, locais='code_state', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_state', titulo_legenda=f'Risco de {tipologia_selecionada_br}')
+    fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_america, locais='code_state', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_state', titulo_legenda=f'Risco de {tipologia_selecionada_br}')
     col_mapa_br.plotly_chart(fig_mapa_br, use_container_width=True)
 
 
