@@ -6,7 +6,7 @@ import streamlit as st
 import plotly.express as px
 
 # -------------------- CONFIGURAÇÕES ----------------------
-titulo_pagina = 'Mapa de Desastres Climáticos no Brasil'
+titulo_pagina = 'Mapa de Desastres Climáticos'
 layout = 'wide'
 st.set_page_config(page_title=titulo_pagina, layout=layout)
 st.title(titulo_pagina)
@@ -14,7 +14,7 @@ st.title(titulo_pagina)
 
 
 
-# ----- FUNÇÕES
+# FUNÇÕES
 @st.cache_data
 def carrega_geojson(caminho):
     with open(caminho, 'r') as f:
@@ -93,7 +93,6 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, nome_hover
             )
         )
     )
-    #mapbox_bounds={"west": -180, "east": -50, "south": 20, "north": 90}) 
     
     return fig
 
@@ -104,7 +103,7 @@ dados_atlas = carrega_parquet('dados_desastres_ams.parquet')
 dados_merge = carrega_parquet('ams+muni_br.parquet')
 coord_uf = carrega_parquet('coord_uf.parquet')
 pop_pib = carrega_parquet('pop_pib_muni.parquet')
-pop_pib_uf = carrega_parquet('pop_pib_uf.parquet')
+pop_pib_uf = carrega_parquet('pop_pib_ams.parquet')
 malha_america = carrega_geojson('ams+br_uf.json')
 
 estados = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO']
@@ -129,12 +128,19 @@ mapa_de_cores = {
     'Rompimento/Colapso de barragens': 'rgb(102, 102, 102)',
     'Sem Dados': '#BAB0AC'
 }
+# cores_risco = {
+#     'Muito Alto': '#DC3912',
+#     'Alto': '#FF9900',
+#     'Moderado': '#FECB52',
+#     'Baixo': '#0099C6',
+#     'Muito Baixo': '#3366CC'
+# }
 cores_risco = {
-    'Muito Alto': '#DC3912',
-    'Alto': '#FF9900',
-    'Moderado': '#FECB52',
-    'Baixo': '#0099C6',
-    'Muito Baixo': '#3366CC'
+    'Muito Alto': '#E45756',
+    'Alto': '#F58518',
+    'Moderado': '#EECA3B',
+    'Baixo': '#72B7B2',
+    'Muito Baixo': '#4C78A8'
 }
 codigo_estados = {
     'AC': '12', 'AL': '27', 'AM': '13', 'AP': '16', 'BA': '29', 'CE': '23', 'DF': '53', 'ES': '32', 'GO': '52',
@@ -149,7 +155,7 @@ desastres = {
 }
 
 # COLUNAS
-tabs = st.tabs(['UF', "Brasil"])
+tabs = st.tabs(['UF do Brasil', "América do Sul"])
 
 with tabs[0]:
     col_mapa, col_dados = st.columns([1, 1], gap='large')
@@ -228,7 +234,8 @@ with tabs[0]:
     met1, met2, met3 = col_dados.columns([1, 1, 1])
     met1.metric('Total de ocorrências', len(dados_atlas_query))
     met2.metric('Média de ocorrências por ano', dados_atlas_query.groupby('ano').size().mean().astype(int))
-    met3.metric('% de municípios afetados', f'{round(1 - (len(ocorrencias_merge.query("ocorrencias == 0")) / len(ocorrencias_merge)), 2) * 100} %')
+    # met3.metric('% de municípios afetados', f'{round(1 - (len(ocorrencias_merge.query("ocorrencias == 0")) / len(ocorrencias_merge)), 2) * 100} %')
+    met3.metric('% de municípios afetados', f'{round(len(classificacao_ocorrencias.query("risco == 'Muito Alto' | risco == 'Alto'")) / len(classificacao_ocorrencias), 2) * 100} %')
 
 
 
@@ -257,17 +264,24 @@ with tabs[0]:
 
 with tabs[1]:
     col_mapa_br, col_dados_br = st.columns([1, 1], gap='large')
-    # select1_br, select2_br = col_dados_br.columns([1, 1])
+ 
+
 
     # SELECTBOX
     grupo_desastre_selecionado_br = col_dados_br.selectbox('Selecione o grupo de desastre', list(desastres.keys()), index=0, key='gp_desastre_br')
     ano_inicial_br, ano_final_br = col_dados_br.select_slider('Selecione o período', anos, value=(anos[0], anos[-1]), key='periodo_br')
 
+
+
     # QUERY
     dados_atlas_query_br_1 = dados_atlas.query("grupo_de_desastre == @grupo_desastre_selecionado_br & ano >= @ano_inicial_br & ano <= @ano_final_br")
 
+
+
     # BUBBLE PLOT
     atlas_year_br = dados_atlas_query_br_1.groupby(['ano', 'descricao_tipologia'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
+
+
 
     fig_grupo_desastre_br = px.scatter(atlas_year_br, x="ano", y='descricao_tipologia', size='ocorrencias', 
         color='descricao_tipologia', size_max=50, color_discrete_map=mapa_de_cores,
@@ -283,36 +297,36 @@ with tabs[1]:
     col_dados_br.plotly_chart(fig_grupo_desastre_br)
 
 
+
     # selecionando estado
     tipologia_selecionada_br = col_dados_br.selectbox('Selecione a tipologia do desastre', desastres[grupo_desastre_selecionado_br], index=0, key='tipol_br')
+
 
 
     # MALHA
     malha_estados_br = carrega_malha(tipo='paises', uf='BR', intrarregiao='UF')
 
 
+
     # MAPA DE DESASTRES COMUNS
     tipologias_mais_comuns_por_estado = dados_atlas_query_br_1.groupby(['cod_uf', 'descricao_tipologia'], as_index=False).size().sort_values('size', ascending=False).drop_duplicates(subset='cod_uf', keep='first').rename(columns={'size': 'ocorrencias', 'descricao_tipologia': 'desastre_mais_comum'})
-    # tipologias_mais_comuns_por_estado['cod_uf'] = tipologias_mais_comuns_por_estado.uf.map(codigo_estados)
     tipol_br = dados_merge.groupby(['code_state', 'name_state'], as_index=False).size().drop('size', axis=1)
-    print(tipol_br.name_state.unique())
     tipol_merge_br = tipol_br.merge(tipologias_mais_comuns_por_estado, how='left', left_on='code_state', right_on='cod_uf').drop('cod_uf', axis=1)
     tipol_merge_br.loc[np.isnan(tipol_merge_br['ocorrencias']), 'ocorrencias'] = 0
     tipol_merge_br.desastre_mais_comum = tipol_merge_br.desastre_mais_comum.fillna('Sem Dados')
-    col_mapa_br.subheader('Desastre mais comum por estado')
+    col_mapa_br.subheader('Desastres mais comuns na América do Sul')
     col_mapa_br.plotly_chart(cria_mapa(tipol_merge_br, malha_america, locais='code_state', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_state', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=3, titulo_legenda='Desastre mais comum'), use_container_width=True)
+
 
 
     dados_atlas_query_br_2 = dados_atlas_query_br_1.query("descricao_tipologia == @tipologia_selecionada_br")
 
 
+
     # MAPA RISCO 
     col_mapa_br.divider()  
-    col_mapa_br.subheader(f'Risco de {tipologia_selecionada_br} no Brasil')
-    # malha_estados_br = carrega_malha(tipo='paises', uf='BR', intrarregiao='UF')
-    # modifiquei uf para cod_uf
+    col_mapa_br.subheader(f'Risco de {tipologia_selecionada_br} na América do Sul')
     ocorrencias_br = dados_atlas_query_br_2.groupby(['cod_uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
-    # ocorrencias_br['cod_uf'] = ocorrencias_br.uf.map(codigo_estados)
     merge_br = dados_merge.groupby(['code_state', 'name_state'], as_index=False).size().drop('size', axis=1)
     ocorrencias_merge_br = merge_br.merge(ocorrencias_br, how='left', left_on='code_state', right_on='cod_uf')
     ocorrencias_merge_br.loc[np.isnan(ocorrencias_merge_br["ocorrencias"]), 'ocorrencias'] = 0
@@ -329,12 +343,12 @@ with tabs[1]:
 
 
     # DATAFRAME E DOWNLOAD
-    tabela_br = ocorrencias_br.copy().reset_index(drop=True).sort_values('ocorrencias', ascending=False)
+    tabela_br = ocorrencias_merge_br.copy().reset_index(drop=True).sort_values('ocorrencias', ascending=False)
     tabela_br['ocorrencias_por_ano'] = tabela_br.ocorrencias / (ano_final_br - ano_inicial_br + 1)
-    tabela_merge_br = tabela_br.merge(pop_pib_uf, how='left', left_on='cod_uf', right_on='code_state').drop(['code_state', 'cod_uf'], axis=1)
-    expander_br = col_dados_br.expander(f'Tabela dos 5 estados com o maior risco de *{tipologia_selecionada_br}* no Brasil', expanded=True)
+    tabela_merge_br = tabela_br.merge(pop_pib_uf, how='left', left_on='code_state', right_on='code_state').drop(['code_state', 'cod_uf'], axis=1).rename(columns={'name_state': 'nome'})
+    expander_br = col_dados_br.expander(f'Tabela dos 5 estados com o maior risco de *{tipologia_selecionada_br}* na América do Sul', expanded=True)
     expander_br.dataframe(tabela_merge_br.head())
-    col_dados_br.download_button('Baixar tabela', tabela_merge_br.to_csv(sep=';', index=False), file_name=f'ocorrencias_{tipologia_selecionada_br.replace(" ", "_")}_BR.csv', mime='text/csv', use_container_width=True)
+    col_dados_br.download_button('Baixar tabela', tabela_merge_br.to_csv(sep=';', index=False), file_name=f'ocorrencias_{tipologia_selecionada_br.replace(" ", "_").lower()}_americadosul.csv', mime='text/csv', use_container_width=True)
 
 
 
@@ -343,76 +357,4 @@ with tabs[1]:
     st.divider()
     st.subheader(f'Ocorrências de *{tipologia_selecionada_br}* no Brasil ao longo dos anos')
     fig_line_br = px.line(ocorrencias_ano_br, 'ano', 'ocorrencias', markers=True, labels={'ocorrencias': f'Casos de {tipologia_selecionada_br}', 'ano': 'Ano'}, color_discrete_sequence=[mapa_de_cores[tipologia_selecionada_br]])
-    # fig_line.update_layout(
-    #     title_x=0.15,
-    #     title_y=0.9
-    # )
-    st.plotly_chart(fig_line_br, use_container_width=True)    
-
-
-# with tabs[1]:
-#     col_mapa_br, col_dados_br = st.columns([1, 1], gap='large')
-
-
-#     # SELECTBOX
-#     grupo_desastre_selecionado_br = col_dados_br.selectbox('Selecione o grupo de desastre', list(desastres.keys()), index=0, key='gp_desastre_br')
-#     tipologia_selecionada_br = col_dados_br.selectbox('Selecione o grupo de desastre', desastres[grupo_desastre_selecionado_br], index=0, key='tipol_br')
-#     ano_inicial_br, ano_final_br = col_mapa_br.select_slider('Selecione o período', anos, value=(anos[0], anos[-1]), key='periodo_br', use_container_width=True)
-
-
-#     # QUERY
-#     dados_atlas_query_br = dados_atlas.query("descricao_tipologia == @tipologia_selecionada_br & ano >= @ano_inicial_br & ano <= @ano_final_br")
-
-
-    # # MAPA
-    # malha_estados_br = carrega_malha(tipo='paises', uf='BR', intrarregiao='UF')
-    # ocorrencias_br = dados_atlas_query_br.groupby(['uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
-    # ocorrencias_br['cod_uf'] = ocorrencias_br.uf.map(codigo_estados)
-    # merge_br = dados_merge.groupby(['code_state', 'name_state'], as_index=False).size().drop('size', axis=1)
-    # ocorrencias_merge_br = merge_br.merge(ocorrencias_br, how='left', left_on='code_state', right_on='cod_uf')
-    # ocorrencias_merge_br.loc[np.isnan(ocorrencias_merge_br["ocorrencias"]), 'ocorrencias'] = 0
-    # classificacao_ocorrencias_br = classifica_risco(ocorrencias_merge_br, 'ocorrencias')
-    # # print(classificacao_ocorrencias_br.head())
-    # fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_estados_br, locais='code_state', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_state')
-    # col_mapa_br.plotly_chart(fig_mapa_br, use_container_width=True)
-
-
-#     # ABAS DOS GRAFICOS
-#     grafico_linha, grafico_barra = col_dados_br.tabs(['Ocorrências ao longo dos anos', 'Outros desastres'])
-
-
-#     # LINEPLOT
-#     ocorrencias_ano_br = dados_atlas_query_br.groupby('ano', as_index=False).size().rename(columns={'size': 'ocorrencias'})
-#     titulo_line_br = f'Ocorrências de {tipologia_selecionada} ao longo dos anos no Brasil'
-#     fig_line_br = px.line(ocorrencias_ano_br, 'ano', 'ocorrencias', markers=True, title=titulo_line_br, labels={'ocorrencias': f'Casos de {tipologia_selecionada_br}', 'ano': 'Ano'}, color_discrete_sequence=['#6E899C'])
-#     fig_line_br.update_layout(
-#         title_x=0.15,
-#         title_y=0.9
-#     )
-#     with grafico_linha:
-#         st.plotly_chart(fig_line_br)
-    
-#     with grafico_barra:
-#         atlas_year_br = dados_atlas.query("grupo_de_desastre == @grupo_desastre_selecionado_br & ano >= @ano_inicial_br & ano <= @ano_final_br").groupby(['ano', 'descricao_tipologia'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
-
-#         fig_grupo_desastre_br = px.scatter(atlas_year_br, x="ano", y='descricao_tipologia', size='ocorrencias', 
-#             color='descricao_tipologia', size_max=50, color_discrete_sequence=['#6E899C'],
-#             labels={
-#                 "descricao_tipologia": "",
-#                 "ano": "", 
-#                 "descricao_tipologia": ""
-#             }
-#         )
-#         fig_grupo_desastre_br.update_layout(showlegend=False, legend_orientation='h', margin={"r":0,"t":0,"l":0,"b":0})
-#         fig_grupo_desastre_br.update_xaxes(showgrid=True)
-#         st.plotly_chart(fig_grupo_desastre_br)
-
-#     # DATAFRAME E DOWNLOAD
-#     muni_ocorrencias = dados_atlas_query_br.groupby(['ibge', 'municipio'], as_index=False).size().rename(columns={'size': 'ocorrencias'}).sort_values('ocorrencias', ascending=False).drop_duplicates(subset='ibge', keep='first')
-#     merge_tabela = dados_merge.groupby(['code_muni', 'abbrev_state'], as_index=False).size().drop('size', axis=1).merge(muni_ocorrencias, how='right', left_on='code_muni', right_on='ibge').drop('code_muni', axis=1)
-#     tabela_br = merge_tabela.head().copy().reset_index(drop=True)
-#     tabela_br['populacao'] = np.nan
-#     tabela_br['pib_per_capita'] = np.nan
-#     expander_br = col_dados_br.expander(f'Tabela dos 5 municípios com o maior risco de *{tipologia_selecionada_br}* no Brasil')
-#     expander_br.dataframe(tabela_br)
-#     col_dados_br.download_button('Baixar tabela', tabela_br.to_csv(index=False), file_name=f'ocorrencias_BR.csv', mime='text/csv', use_container_width=True)
+    st.plotly_chart(fig_line_br, use_container_width=True)
