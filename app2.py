@@ -239,8 +239,10 @@ with tabs[0]:
 
     met1.metric('Total de Ocorrências', len(dados_atlas_query))
     met2.metric('Média de Ocorrências por Ano', dados_atlas_query.groupby('ano').size().mean().astype(int))
-    met3.metric('% dos Municípios com Ocorrências', f'{math.ceil(len(classificacao_ocorrencias.query("ocorrencias > 0")) / len(classificacao_ocorrencias) * 100)}%')
-    met4.metric('% de Área com Risco *Alto* e *Muito Alto*', f'{math.ceil(classificacao_ocorrencias.loc[classificacao_ocorrencias.query("risco == 'Muito Alto' | risco == 'Alto'").index, "AREA_KM2"].sum() / classificacao_ocorrencias.AREA_KM2.sum() * 100)}%')
+    muni_ocorr = math.ceil(len(classificacao_ocorrencias.query("ocorrencias > 0")) / len(classificacao_ocorrencias) * 100)
+    met3.metric('% dos Municípios com Ocorrências', f'{muni_ocorr}%')
+    area_risco = math.ceil(classificacao_ocorrencias.loc[classificacao_ocorrencias.query("risco == 'Muito Alto' | risco == 'Alto'").index, "AREA_KM2"].sum() / classificacao_ocorrencias.AREA_KM2.sum() * 100)
+    met4.metric('% de Área com Risco *Alto* e *Muito Alto*', f'{area_risco}%')
 
 
     # DATAFRAME E DOWNLOAD
@@ -354,7 +356,8 @@ with tabs[1]:
 
     met1_br.metric('Total de ocorrências', len(dados_atlas_query_br_2))
     met2_br.metric('Média de ocorrências por ano', dados_atlas_query_br_2.groupby('ano').size().mean().astype(int))
-    met3_br.metric('% de Área com Risco *Alto* e *Muito Alto*', f'{math.ceil(classificacao_ocorrencias_br.loc[classificacao_ocorrencias_br.query("risco == 'Muito Alto' | risco == 'Alto'").index, "AREA_KM2"].sum() / classificacao_ocorrencias_br.AREA_KM2.sum() * 100)}%')
+    area_risco_br = math.ceil(classificacao_ocorrencias_br.loc[classificacao_ocorrencias_br.query("risco == 'Muito Alto' | risco == 'Alto'").index, "AREA_KM2"].sum() / classificacao_ocorrencias_br.AREA_KM2.sum() * 100)
+    met3_br.metric('% de Área com Risco *Alto* e *Muito Alto*', f'{area_risco_br}%')
 
 
 
