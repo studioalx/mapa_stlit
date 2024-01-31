@@ -24,6 +24,11 @@ def carrega_geojson(caminho):
     return geoj
 
 @st.cache_data
+def filtra_geojson(geojson, iso, prop='codarea'):
+    gdf = gpd.GeoDataFrame.from_features(geojson)
+    return json.loads(gdf[gdf[prop] == iso].to_json())
+
+@st.cache_data
 def carrega_dados(caminho_arquivo):
     df = pd.read_csv(caminho_arquivo)
     return df
@@ -120,13 +125,15 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, tons_midpo
 
 
 # VARIAVEIS
-dados_atlas = carrega_parquet('dados_desastres_latam.parquet')
-dados_merge = carrega_parquet('latam+uf+muni_area2.parquet')
-# print(dados_merge.iloc[5571:5583])
+dados_atlas = carrega_parquet('desastres_latam.parquet')
+# print(dados_atlas.tail(20))
+dados_merge = carrega_parquet('area.parquet')
+# dados_merge = carrega_parquet('latam+uf+muni_area2.parquet')
 coord_uf = carrega_parquet('coord_uf.parquet')
 pop_pib = carrega_parquet('pop_pib_muni.parquet')
-pop_pib_uf = carrega_parquet('pop_pib_ams.parquet')
-malha_america = carrega_geojson('latam+br_uf.json')
+pop_pib_uf = carrega_parquet('pop_pib_latam.parquet')
+malha_america = carrega_geojson('malha_latam.json')
+# malha_america = carrega_geojson('latam+br_uf.json')
 # gdf = gpd.read_file('latam+br_uf.json')
 
 estados = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO']
@@ -246,7 +253,6 @@ with tabs[0]:
     ocorrencias_merge = merge_muni.merge(ocorrencias, how='left', left_on='code_muni', right_on='ibge')
     ocorrencias_merge.loc[np.isnan(ocorrencias_merge["ocorrencias"]), 'ocorrencias'] = 0
     classificacao_ocorrencias = classifica_risco(ocorrencias_merge, 'ocorrencias')  # mudadr classficador
-    # print(math.ceil(classificacao_ocorrencias.loc[classificacao_ocorrencias.query("risco == 'Muito Alto' | risco == 'Alto'").index, "AREA_KM2"].sum() / classificacao_ocorrencias.AREA_KM2.sum() * 100))
     fig_mapa = cria_mapa(classificacao_ocorrencias, malha_mun_estados, locais='code_muni', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_muni', lat=lat, lon=lon, zoom=5, titulo_legenda=f'Risco de {tipologia_selecionada}')
     # fig_mapa = cria_mapa(classificacao_ocorrencias, malha_mun_estados, locais='code_muni', cor='ocorrencias', tons=list(cores_risco.values()), dados_hover='ocorrencias', nome_hover='name_muni', lat=lat, lon=lon, zoom=5, titulo_legenda=f'Risco de {tipologia_selecionada}')
     col_mapa.divider()
@@ -271,18 +277,18 @@ with tabs[0]:
     tabela = ocorrencias.copy().reset_index(drop=True).sort_values('ocorrencias', ascending=False).rename(columns={'ibge': 'codigo_municipal'})
     tabela['ocorrencias_por_ano'] = tabela.ocorrencias / (ano_final - ano_inicial + 1)
     tabela_merge = tabela.merge(pop_pib, how='left', left_on='codigo_municipal', right_on='code_muni').drop('code_muni', axis=1)
-    expander = col_dados.expander(f'Municípios com o maior risco de *{tipologia_selecionada}* em {uf_selecionado}', expanded=False)
-    expander.dataframe(tabela_merge.head(), hide_index=True, 
+    expander = col_dados.expander(f'Municípios com o maior risco de *{tipologia_selecionada}* em {uf_selecionado}', expanded=True)
+    expander.dataframe(tabela_merge.head(), hide_index=True,
                        column_config={
                             'codigo_municipal': None,
                             'municipio': st.column_config.TextColumn('Município'),
-                            'ocorrencias': st.column_config.TextColumn('Número de ocorrências'),
+                            'ocorrencias': st.column_config.TextColumn('Total ocorrências'),
                             'pib_per_capita': st.column_config.NumberColumn(
                                 'PIB per Capita',
                                 format="R$ %.2f",
                             ),
-                            'populacao': st.column_config.NumberColumn('População', format='%d'),
-                            'ocorrencias_por_ano': st.column_config.NumberColumn('Média de ocorrências por ano', format='%.1f')
+                            'populacao': st.column_config.NumberColumn('Pop.', format='%d'),
+                            'ocorrencias_por_ano': st.column_config.NumberColumn('Média ocorrências/ano', format='%.1f')
                         })
     col_dados.download_button('Baixar tabela', tabela_merge.to_csv(sep=';', index=False), file_name=f'ocorrencias_{uf_selecionado}.csv', mime='text/csv', use_container_width=True)
 
@@ -310,7 +316,7 @@ with tabs[1]:
 
     # QUERY
     dados_atlas_query_br_1 = dados_atlas.query("grupo_de_desastre == @grupo_desastre_selecionado_br & ano >= @ano_inicial_br & ano <= @ano_final_br")
-    # print(dados_atlas_query_br_1.tail(10))
+    print(dados_atlas_query_br_1.tail(20))
 
 
     # BUBBLE PLOT
@@ -334,12 +340,13 @@ with tabs[1]:
 
 
     # selecionando estado
-    tipologia_selecionada_br = col_dados_br.selectbox('Selecione a tipologia do desastre', desastres[grupo_desastre_selecionado_br], index=0, key='tipol_br')
+    col_pais, col_desastre = col_dados_br.columns([1, 1])
 
+    pais_selecionado = col_pais.selectbox('Selecione o país', sorted(dados_merge.iloc[-45:].name_state.unique()), index=7, key='pais_br')
+    iso = dados_merge.loc[dados_merge.name_state == pais_selecionado, 'code_state'].values[0]
+    malha_pais_selecionado = filtra_geojson(malha_america, iso)
 
-
-    # MALHA
-    # malha_estados_br = carrega_malha(tipo='paises', uf='BR', intrarregiao='UF')
+    tipologia_selecionada_br = col_desastre.selectbox('Selecione a tipologia do desastre', desastres[grupo_desastre_selecionado_br], index=2, key='tipol_br')
 
 
 
@@ -350,11 +357,11 @@ with tabs[1]:
     tipol_merge_br.loc[np.isnan(tipol_merge_br['ocorrencias']), 'ocorrencias'] = 0
     tipol_merge_br.desastre_mais_comum = tipol_merge_br.desastre_mais_comum.fillna('Sem Dados')
     col_mapa_br.subheader('Desastres mais comuns na América Latina')
-    col_mapa_br.plotly_chart(cria_mapa(tipol_merge_br, malha_america, locais='code_state', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_state', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=3, titulo_legenda='Desastre mais comum'), use_container_width=True)
+    col_mapa_br.plotly_chart(cria_mapa(tipol_merge_br, malha_america, locais='code_state', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_state', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=1, titulo_legenda='Desastre mais comum'), use_container_width=True)
 
 
 
-    dados_atlas_query_br_2 = dados_atlas_query_br_1.query("descricao_tipologia == @tipologia_selecionada_br")
+    dados_atlas_query_br_2 = dados_atlas_query_br_1.query("descricao_tipologia == @tipologia_selecionada_br & cod_uf == @iso")
 
 
 
@@ -362,43 +369,46 @@ with tabs[1]:
     col_mapa_br.divider()  
     col_mapa_br.subheader(f'Risco de {tipologia_selecionada_br} na América Latina')
     ocorrencias_br = dados_atlas_query_br_2.groupby(['cod_uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
-    merge_br = dados_merge.iloc[-71:].groupby(['code_state', 'name_state', 'AREA_KM2'], as_index=False).size().drop('size', axis=1)  # "-71" é o índice que começam os países da América Latina e os estados brasileiros
+    merge_br = dados_merge.iloc[-45:].groupby(['code_state', 'name_state', 'AREA_KM2'], as_index=False).size().drop('size', axis=1)  # "-71" é o índice que começam os países da América Latina e os estados brasileiros
     ocorrencias_merge_br = merge_br.merge(ocorrencias_br, how='left', left_on='code_state', right_on='cod_uf')
     ocorrencias_merge_br.loc[np.isnan(ocorrencias_merge_br["ocorrencias"]), 'ocorrencias'] = 0
+    # print(ocorrencias_merge_br.head(20))
     classificacao_ocorrencias_br = classifica_risco(ocorrencias_merge_br, 'ocorrencias')  # mudar classificador
-    fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_america, locais='code_state', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_state', titulo_legenda=f'Risco de {tipologia_selecionada_br}')
+    fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_pais_selecionado, locais='code_state', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_state', titulo_legenda=f'Risco de {tipologia_selecionada_br}', zoom=1)
     # fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_america, locais='code_state', cor='ocorrencias', tons=list(cores_risco.values()), dados_hover='ocorrencias', nome_hover='name_state', titulo_legenda=f'Risco de {tipologia_selecionada_br}')
     col_mapa_br.plotly_chart(fig_mapa_br, use_container_width=True)
 
-    # print(classificacao_ocorrencias_br.query("risco == 'Muito Alto' | risco == 'Alto'")['AREA_KM2'].sum())
-
+ 
 
     # MÉTRICAS
     met1_br, met2_br = col_dados_br.columns([1, 1])
-    met3_br, _ = col_dados_br.columns([1, 1])
+    # met3_br, _ = col_dados_br.columns([1, 1])
 
     met1_br.metric('Total de ocorrências', len(dados_atlas_query_br_2))
-    met2_br.metric('Média de ocorrências por ano', dados_atlas_query_br_2.groupby('ano').size().mean().astype(int))
-    area_risco_br = math.ceil(classificacao_ocorrencias_br.loc[classificacao_ocorrencias_br.query("risco == 'Muito Alto' | risco == 'Alto'").index, "AREA_KM2"].sum() / classificacao_ocorrencias_br.AREA_KM2.sum() * 100)
-    met3_br.metric('% de Área com Risco *Alto* e *Muito Alto*', f'{area_risco_br}%')
+    met2_br.metric('Média de ocorrências por ano', round(len(dados_atlas_query_br_2) / (ano_final_br - ano_inicial_br + 1), 1))
+    # area_risco_br = math.ceil(classificacao_ocorrencias_br.loc[classificacao_ocorrencias_br.query("risco == 'Muito Alto' | risco == 'Alto'").index, "AREA_KM2"].sum() / classificacao_ocorrencias_br.AREA_KM2.sum() * 100)
+    # met3_br.metric('% de Área com Risco *Alto* e *Muito Alto*', f'{area_risco_br}%')
 
 
 
     # DATAFRAME E DOWNLOAD
-    tabela_br = ocorrencias_merge_br.copy().reset_index(drop=True).sort_values('ocorrencias', ascending=False)
-    tabela_br['ocorrencias_por_ano'] = tabela_br.ocorrencias.div(ano_final_br - ano_inicial_br + 1).round(0)
-    tabela_merge_br = tabela_br.merge(pop_pib_uf, how='left', left_on='code_state', right_on='code_state').drop(['code_state', 'cod_uf', 'risco', 'AREA_KM2'], axis=1).rename(columns={'name_state': 'nome'})
-    expander_br = col_dados_br.expander(f'Estados/Países com o maior risco de *{tipologia_selecionada_br}* na América Latina', expanded=True)
+    dados_tabela = dados_atlas_query_br_1.query("descricao_tipologia == @tipologia_selecionada_br").groupby(['cod_uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
+    tabela_br = dados_tabela.copy().reset_index(drop=True).sort_values('ocorrencias', ascending=False)
+    tabela_br['ocorrencias_por_ano'] = round(tabela_br.ocorrencias.div(ano_final_br - ano_inicial_br + 1), 1)
+    print(tabela_br.head())
+    tabela_merge_br = pop_pib_uf.merge(tabela_br, how='right', left_on='cod_uf', right_on='cod_uf').drop(['cod_uf'], axis=1)
+    print(tabela_merge_br.head())
+    expander_br = col_dados_br.expander(f'Países com o maior risco de *{tipologia_selecionada_br}* na América Latina', expanded=True)
     expander_br.dataframe(tabela_merge_br.head(), hide_index=True, 
                           column_config={
-                            'nome': st.column_config.TextColumn('Estado/Páis'),
-                            'ocorrencias': st.column_config.TextColumn('Número de ocorrências'),
+                            'pais': st.column_config.TextColumn('País'),
+                            'ocorrencias': st.column_config.TextColumn('Total ocorrências'),
                             'pib_per_capita': st.column_config.NumberColumn(
                                 'PIB per Capita',
                                 format="R$ %.2f",
                             ),
-                            'populacao': st.column_config.NumberColumn('População', format='%d'),
-                            'ocorrencias_por_ano': st.column_config.NumberColumn('Média de ocorrências por ano', format='%.1f')
+                            'populacao': st.column_config.NumberColumn('Pop.', format='%d'),
+                            'ocorrencias_por_ano': st.column_config.NumberColumn('Média ocorrências/ano', format='%.1f')
                         })
 
     col_dados_br.download_button('Baixar tabela', tabela_merge_br.to_csv(sep=';', index=False), file_name=f'{tipologia_selecionada_br.replace(" ", "_").lower()}_americalatina.csv', mime='text/csv', use_container_width=True)
@@ -411,3 +421,30 @@ with tabs[1]:
     st.subheader(f'Ocorrências de *{tipologia_selecionada_br}* na América Latina ao longo dos anos')
     fig_line_br = px.line(ocorrencias_ano_br, 'ano', 'ocorrencias', markers=True, labels={'ocorrencias': f'Casos de {tipologia_selecionada_br}', 'ano': 'Ano'}, color_discrete_sequence=[mapa_de_cores[tipologia_selecionada_br]])
     st.plotly_chart(fig_line_br, use_container_width=True)
+
+
+
+# creditos
+
+st.divider()
+st.title('Créditos')
+col_creditos1, col_creditos2 = st.columns([1, 1], gap='large')
+
+col_creditos1.subheader('Founded by [IRB(Re)](https://www.irbre.com/)')
+col_creditos1.caption('A leading figure in the Brazilian reinsurance market, with over 80 years of experience and a comprehensive portfolio of solutions for the market.')
+col_creditos1.image('irb.jpg', use_column_width=True)
+
+col_creditos2.subheader('Developed by Instituto de Riscos Climáticos')
+col_creditos2.markdown('''
+**Supervisors:** Carlos Teixeira, Reinaldo Marques & Roberto Westenberger
+
+**Researchers:** Luiz Otavio & Karoline Branco
+
+**Data Scientists:**  Lucas Lima & Paulo Cesar
+                       
+**Risk Scientists:** Ana Victoria & Beatriz Pimenta
+                       
+#### Source
+- **The Emergency Events Database (EM-DAT)** , Centre for Research on the Epidemiology of Disasters (CRED) / Université catholique de Louvain (UCLouvain), Brussels, Belgium – [www.emdat.be](https://www.emdadt.be/).
+- **Atlas Digital de Desastres no Brasil** - [www.atlasdigital.mdr.gov.br/](http://atlasdigital.mdr.gov.br/).
+''')
