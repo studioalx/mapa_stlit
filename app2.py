@@ -96,6 +96,9 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, tons_midpo
         color_continuous_scale=tons,
         color_continuous_midpoint=tons_midpoint,
         color_discrete_map=lista_cores,
+        category_orders={cor: list(lista_cores.keys())},
+        labels={'risco': 'Risco', 'ocorrencias': 'Ocorrências', 'code_muni': 'Código Municipal',
+                 'code_state': 'Código País', 'desastre_mais_comum': 'Desastre mais comum'},
         locations=locais, featureidkey=featureid,
         center={'lat': lat, 'lon': lon}, zoom=zoom, 
         mapbox_style='carto-positron', height=500,
@@ -126,15 +129,11 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, tons_midpo
 
 # VARIAVEIS
 dados_atlas = carrega_parquet('desastres_latam.parquet')
-# print(dados_atlas.tail(20))
 dados_merge = carrega_parquet('area.parquet')
-# dados_merge = carrega_parquet('latam+uf+muni_area2.parquet')
 coord_uf = carrega_parquet('coord_uf.parquet')
 pop_pib = carrega_parquet('pop_pib_muni.parquet')
 pop_pib_uf = carrega_parquet('pop_pib_latam.parquet')
 malha_america = carrega_geojson('malha_latam.json')
-# malha_america = carrega_geojson('latam+br_uf.json')
-# gdf = gpd.read_file('latam+br_uf.json')
 
 estados = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO']
 anos = dados_atlas.ano.unique()
@@ -158,24 +157,12 @@ mapa_de_cores = {
     'Rompimento/Colapso de barragens': 'rgb(102, 102, 102)',
     'Sem Dados': '#BAB0AC'
 }
-# cores_risco = {
-#     'Muito Alto': '#DC3912',
-#     'Alto': '#FF9900',
-#     'Moderado': '#FECB52',
-#     'Baixo': '#0099C6',
-#     'Muito Baixo': '#3366CC'
-# }
 cores_risco = {
-    'Muito Baixo': '#4C78A8',
-    'Baixo': '#72B7B2',
-    'Moderado': '#EECA3B',
+    'Muito Alto': '#E45756',
     'Alto': '#F58518',
-    'Muito Alto': '#E45756'
-}
-codigo_estados = {
-    'AC': '12', 'AL': '27', 'AM': '13', 'AP': '16', 'BA': '29', 'CE': '23', 'DF': '53', 'ES': '32', 'GO': '52',
-    'MA': '21', 'MG': '31', 'MS': '50', 'MT': '51', 'PA': '15', 'PB': '25', 'PE': '26', 'PI': '22', 'PR': '41',
-    'RJ': '33', 'RN': '24', 'RO': '11', 'RR': '14', 'RS': '43', 'SC': '42', 'SE': '28', 'SP': '35', 'TO': '17'
+    'Moderado': '#EECA3B',
+    'Baixo': '#72B7B2',
+    'Muito Baixo': '#4C78A8'
 }
 desastres = {
     'Hidrológico': ['Alagamentos', 'Chuvas Intensas', 'Enxurradas', 'Inundações', 'Movimento de Massa'],
@@ -185,7 +172,7 @@ desastres = {
 }
 
 # COLUNAS
-tabs = st.tabs(['UF do Brasil', "América Latina"])
+tabs = st.tabs(['UF do Brasil', "América Latina", 'Créditos'])
 
 with tabs[0]:
     col_mapa, col_dados = st.columns([1, 1], gap='large')
@@ -395,9 +382,9 @@ with tabs[1]:
     dados_tabela = dados_atlas_query_br_1.query("descricao_tipologia == @tipologia_selecionada_br").groupby(['cod_uf'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
     tabela_br = dados_tabela.copy().reset_index(drop=True).sort_values('ocorrencias', ascending=False)
     tabela_br['ocorrencias_por_ano'] = round(tabela_br.ocorrencias.div(ano_final_br - ano_inicial_br + 1), 1)
-    print(tabela_br.head())
+    # print(tabela_br.head())
     tabela_merge_br = pop_pib_uf.merge(tabela_br, how='right', left_on='cod_uf', right_on='cod_uf').drop(['cod_uf'], axis=1)
-    print(tabela_merge_br.head())
+    # print(tabela_merge_br.head())
     expander_br = col_dados_br.expander(f'Países com o maior risco de *{tipologia_selecionada_br}* na América Latina', expanded=True)
     expander_br.dataframe(tabela_merge_br.head(), hide_index=True, 
                           column_config={
@@ -425,26 +412,24 @@ with tabs[1]:
 
 
 # creditos
+with tabs[2]:
+    col_creditos1, col_creditos2 = st.columns([1, 1], gap='large')
 
-st.divider()
-st.title('Créditos')
-col_creditos1, col_creditos2 = st.columns([1, 1], gap='large')
+    col_creditos1.subheader('Founded by [IRB(Re)](https://www.irbre.com/)')
+    col_creditos1.caption('A leading figure in the Brazilian reinsurance market, with over 80 years of experience and a complete portfolio of solutions for the market.')
+    col_creditos1.image('irb.jpg', use_column_width=True)
 
-col_creditos1.subheader('Founded by [IRB(Re)](https://www.irbre.com/)')
-col_creditos1.caption('A leading figure in the Brazilian reinsurance market, with over 80 years of experience and a complete portfolio of solutions for the market.')
-col_creditos1.image('irb.jpg', use_column_width=True)
+    col_creditos2.subheader('Developed by Instituto de Riscos Climáticos')
+    col_creditos2.markdown('''
+    **Supervisors:** Carlos Teixeira, Reinaldo Marques & Roberto Westenberger
 
-col_creditos2.subheader('Developed by Instituto de Riscos Climáticos')
-col_creditos2.markdown('''
-**Supervisors:** Carlos Teixeira, Reinaldo Marques & Roberto Westenberger
+    **Researchers:** Luiz Otavio & Karoline Branco
 
-**Researchers:** Luiz Otavio & Karoline Branco
-
-**Data Scientists:**  Lucas Lima & Paulo Cesar
-                       
-**Risk Scientists:** Ana Victoria & Beatriz Pimenta
-                       
-#### Source
-- **The Emergency Events Database (EM-DAT)** , Centre for Research on the Epidemiology of Disasters (CRED) / Université catholique de Louvain (UCLouvain), Brussels, Belgium – [www.emdat.be](https://www.emdadt.be/).
-- **Atlas Digital de Desastres no Brasil** - [www.atlasdigital.mdr.gov.br/](http://atlasdigital.mdr.gov.br/).
-''')
+    **Data Scientists:**  Lucas Lima & Paulo Cesar
+                        
+    **Risk Scientists:** Ana Victoria & Beatriz Pimenta
+                        
+    #### Source
+    - **The Emergency Events Database (EM-DAT)** , Centre for Research on the Epidemiology of Disasters (CRED) / Université catholique de Louvain (UCLouvain), Brussels, Belgium – [www.emdat.be](https://www.emdadt.be/).
+    - **Atlas Digital de Desastres no Brasil** - [www.atlasdigital.mdr.gov.br/](http://atlasdigital.mdr.gov.br/).
+    ''')
