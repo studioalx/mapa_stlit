@@ -281,11 +281,48 @@ with tabs[0]:
 
 
 
+    # HEATMAP
+    cls_scales = {
+        'Climatológico': 'OrRd',
+        'Hidrológico': 'PuBu',
+        'Meteorológico': 'Tempo',
+        'Outros': 'Brwnyl'
+    }
+    heatmap_query = dados_atlas.iloc[:62273].query("descricao_tipologia == @tipologia_selecionada")
+    pivot_hm = heatmap_query.pivot_table(index='ano', columns='uf', aggfunc='size', fill_value=0)
+    pivot_hm = pivot_hm.reindex(columns=dados_atlas.uf.unique()[:-1], fill_value=0)
+    pivot_hm = pivot_hm.reindex(index=anos[:-1], fill_value=0).transpose()
+    fig_hm = px.imshow(
+        pivot_hm,
+        labels=dict(x="Ano", y="Estado (UF)", color="Total ocorrências"),
+        x=pivot_hm.columns,
+        y=pivot_hm.index,
+        color_continuous_scale=cls_scales[grupo_desastre_selecionado],
+    )
+    fig_hm.update_layout(
+        yaxis_nticks=len(pivot_hm),
+        height=700
+    )
+    st.subheader(f'Ocorrências de *{tipologia_selecionada}* por estado ao longo dos anos')
+    st.plotly_chart(fig_hm, use_container_width=True)
+
+
+
     # LINEPLOT
-    ocorrencias_ano = dados_atlas_query.groupby('ano', as_index=False).size().rename(columns={'size': 'ocorrencias'})
+    line_query = dados_atlas.iloc[:62273].query("descricao_tipologia == @tipologia_selecionada & uf == @uf_selecionado")
+    cols_danos = ['agricultura', 'pecuaria', 'industria']  # 'total_danos_materiais'
+    soma_danos = line_query.groupby(['ano'], as_index=False)[cols_danos].sum()
     st.divider()
-    st.subheader(f'Ocorrências de *{tipologia_selecionada}* em *{uf_selecionado}* ao longo dos anos')
-    fig_line = px.line(ocorrencias_ano, 'ano', 'ocorrencias', markers=True, labels={'ocorrencias': f'Casos de {tipologia_selecionada}', 'ano': 'Ano'}, color_discrete_sequence=[mapa_de_cores[tipologia_selecionada]])
+    st.subheader(f'Danos causados por *{tipologia_selecionada}* em *{uf_selecionado}* ao longo dos anos')
+    fig_line = px.line(
+        soma_danos, 'ano', cols_danos, markers=True, 
+        labels={'value': 'Valor', 'variable': 'Setor', 'ano': 'Ano'}, 
+        line_shape='spline'
+    )
+    fig_line.update_layout(
+    legend=dict(orientation="h",
+        font=dict(size=16))
+    )
     st.plotly_chart(fig_line, use_container_width=True)    
 
 
@@ -402,12 +439,13 @@ with tabs[1]:
 
 
 
-    # LINEPLOT
-    ocorrencias_ano_br = dados_atlas_query_br_2.groupby('ano', as_index=False).size().rename(columns={'size': 'ocorrencias'})
-    st.divider()
-    st.subheader(f'Ocorrências de *{tipologia_selecionada_br}* na América Latina ao longo dos anos')
-    fig_line_br = px.line(ocorrencias_ano_br, 'ano', 'ocorrencias', markers=True, labels={'ocorrencias': f'Casos de {tipologia_selecionada_br}', 'ano': 'Ano'}, color_discrete_sequence=[mapa_de_cores[tipologia_selecionada_br]])
-    st.plotly_chart(fig_line_br, use_container_width=True)
+    # # LINEPLOT
+    # ocorrencias_ano_br = dados_atlas_query_br_2.groupby('ano', as_index=False).size().rename(columns={'size': 'ocorrencias'})
+    # print(ocorrencias_ano_br.head())
+    # st.divider()
+    # st.subheader(f'Ocorrências de *{tipologia_selecionada_br}* na América Latina ao longo dos anos')
+    # fig_line_br = px.line(ocorrencias_ano_br, 'ano', 'ocorrencias', markers=True, labels={'ocorrencias': f'Casos de {tipologia_selecionada_br}', 'ano': 'Ano'}, color_discrete_sequence=[mapa_de_cores[tipologia_selecionada_br]])
+    # st.plotly_chart(fig_line_br, use_container_width=True)
 
 
 
