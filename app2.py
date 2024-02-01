@@ -281,49 +281,72 @@ with tabs[0]:
 
 
 
-    # HEATMAP
-    cls_scales = {
-        'Climatológico': 'OrRd',
-        'Hidrológico': 'PuBu',
-        'Meteorológico': 'Tempo',
-        'Outros': 'Brwnyl'
-    }
-    heatmap_query = dados_atlas.iloc[:62273].query("descricao_tipologia == @tipologia_selecionada")
-    pivot_hm = heatmap_query.pivot_table(index='ano', columns='uf', aggfunc='size', fill_value=0)
-    pivot_hm = pivot_hm.reindex(columns=dados_atlas.uf.unique()[:-1], fill_value=0)
-    pivot_hm = pivot_hm.reindex(index=anos[:-1], fill_value=0).transpose()
-    fig_hm = px.imshow(
-        pivot_hm,
-        labels=dict(x="Ano", y="Estado (UF)", color="Total ocorrências"),
-        x=pivot_hm.columns,
-        y=pivot_hm.index,
-        color_continuous_scale=cls_scales[grupo_desastre_selecionado],
-    )
-    fig_hm.update_layout(
-        yaxis_nticks=len(pivot_hm),
-        height=700
-    )
-    st.subheader(f'Ocorrências de *{tipologia_selecionada}* por estado ao longo dos anos')
-    st.plotly_chart(fig_hm, use_container_width=True)
-
-
-
     # LINEPLOT
     line_query = dados_atlas.iloc[:62273].query("descricao_tipologia == @tipologia_selecionada & uf == @uf_selecionado")
     cols_danos = ['agricultura', 'pecuaria', 'industria']  # 'total_danos_materiais'
     soma_danos = line_query.groupby(['ano'], as_index=False)[cols_danos].sum()
-    st.divider()
-    st.subheader(f'Danos causados por *{tipologia_selecionada}* em *{uf_selecionado}* ao longo dos anos')
+    # st.divider()
+    st.subheader(f'Danos causados por *{tipologia_selecionada}* em *{uf_selecionado}*')
     fig_line = px.line(
         soma_danos, 'ano', cols_danos, markers=True, 
         labels={'value': 'Valor', 'variable': 'Setor', 'ano': 'Ano'}, 
         line_shape='spline'
     )
     fig_line.update_layout(
-    legend=dict(orientation="h",
+    legend=dict(orientation="v",
         font=dict(size=16))
     )
-    st.plotly_chart(fig_line, use_container_width=True)    
+    st.plotly_chart(fig_line, use_container_width=True)      
+
+
+
+    # HEATMAPS
+    aba_hm1, aba_hm2 = st.tabs(['Ocorrências por Estado', 'Ocorrências por Grupo de Desastre'])
+    cls_scales = {
+        'Climatológico': 'OrRd',
+        'Hidrológico': 'PuBu',
+        'Meteorológico': 'Tempo',
+        'Outros': 'Brwnyl'
+    }
+
+    with aba_hm1:
+        heatmap_query = dados_atlas.iloc[:62273].query("descricao_tipologia == @tipologia_selecionada")
+        pivot_hm = heatmap_query.pivot_table(index='ano', columns='uf', aggfunc='size', fill_value=0)
+        pivot_hm = pivot_hm.reindex(columns=dados_atlas.uf.unique()[:-1], fill_value=0)
+        pivot_hm = pivot_hm.reindex(index=anos[:-1], fill_value=0).transpose()
+        fig_hm = px.imshow(
+            pivot_hm,
+            labels=dict(x="Ano", y="Estado (UF)", color="Total ocorrências"),
+            x=pivot_hm.columns,
+            y=pivot_hm.index,
+            color_continuous_scale=cls_scales[grupo_desastre_selecionado],
+        )
+        fig_hm.update_layout(
+            yaxis_nticks=len(pivot_hm),
+            height=700
+        )
+        st.subheader(f'Ocorrências de *{tipologia_selecionada}* por estado')
+        st.plotly_chart(fig_hm, use_container_width=True)
+    with aba_hm2:
+        heatmap_query2 = dados_atlas.iloc[:62273].query("grupo_de_desastre == @grupo_desastre_selecionado & uf == @uf_selecionado")
+        pivot_hm2 = heatmap_query2.pivot_table(index='ano', columns='descricao_tipologia', aggfunc='size', fill_value=0)
+        # pivot_hm2 = pivot_hm.reindex(columns=dados_atlas.descri.unique()[:-1], fill_value=0)
+        pivot_hm2 = pivot_hm2.reindex(index=anos[:-1], fill_value=0).transpose()
+        fig_hm2 = px.imshow(
+            pivot_hm2,
+            labels=dict(x="Ano", y="Desastre", color="Total ocorrências"),
+            x=pivot_hm2.columns,
+            y=pivot_hm2.index,
+            color_continuous_scale=cls_scales[grupo_desastre_selecionado],
+        )
+        fig_hm2.update_layout(
+            yaxis_nticks=len(pivot_hm2),
+        )
+        st.subheader(f'Ocorrências do grupo de desastre *{grupo_desastre_selecionado}*')
+        st.plotly_chart(fig_hm2, use_container_width=True)
+
+
+  
 
 
 
