@@ -74,11 +74,11 @@ def classifica_risco(df, col_ocorrencias):
 
 def classifica_segurado(base, dataframe):
     df = dataframe.copy()
-    nenhum = set(base.query("descricao_tipologia == 'Nenhum'").ibge)
-    algum = set(base.query("descricao_tipologia != 'Nenhum'").ibge)
+    nenhum = set(base.query("descricao_tipologia == '-'").ibge)
+    algum = set(base.query("descricao_tipologia != '-'").ibge)
     resultado = list(nenhum - algum)
-    df['seg'] = np.where(df.ibge == '-', 'nao segurado', 'segurado com sinistro')
-    df.seg = df.seg.mask(df.code_muni.isin(resultado), 'segurado sem sinistro')
+    df['seg'] = np.where(df.ibge == '-', 'Não Segurada', 'Apresenta Sinistro')
+    df.seg = df.seg.mask(df.code_muni.isin(resultado), 'Não Apresenta Sinistro')
     return df
 
 def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, tons_midpoint=None, nome_hover=None, dados_hover=None, lista_cores=None, lat=-14, lon=-53, zoom=3, titulo_legenda='Risco', featureid='properties.codarea'):
@@ -88,8 +88,9 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, tons_midpo
         color_continuous_midpoint=tons_midpoint,
         color_discrete_map=lista_cores,
         category_orders={cor: list(lista_cores.keys())},
-        labels={'risco': 'Risco', 'ocorrencias': 'Ocorrências', 'code_muni': 'Código Municipal',
-                 'code_state': 'Código', 'desastre_mais_comum': 'Desastre mais comum'},
+        labels={'risco': 'Risco', 'ocorrencias': 'Ocorrências', 'code_muni': 'Código Municipal', 'sinistros': 'Sinistros',
+                'code_state': 'Código', 'desastre_mais_comum': 'Desastre mais comum', 'evento_mais_comum': 'Evento mais comum',
+                'seg': 'Tipo de Área Segurada'},
         locations=locais, featureidkey=featureid,
         center={'lat': lat, 'lon': lon}, zoom=zoom, 
         mapbox_style='carto-positron', height=500,
@@ -130,7 +131,8 @@ pop_pib_uf = carrega_parquet('pop_pib_latam.parquet')
 malha_america = carrega_geojson('malha_latam.json')
 malha_brasil = carrega_geojson('malha_brasileira.json')
 
-psr = carrega_parquet('PSR.parquet')[['NM_RAZAO_SOCIAL', 'NM_CULTURA_GLOBAL', 'PE_TAXA', 'NR_PRODUTIVIDADE_SEGURADA', 'uf', 'ibge', 'ano', 'descricao_tipologia', 'municipio', 'NR_APOLICE', 'VL_PREMIO_LIQUIDO', 'VL_SUBVENCAO_FEDERAL', 'VALOR_INDENIZAÇÃO']]
+# psr = carrega_parquet('PSR.parquet')[['NM_RAZAO_SOCIAL', 'NR_AREA_TOTAL', 'NM_CULTURA_GLOBAL', 'PE_TAXA', 'NR_PRODUTIVIDADE_SEGURADA', 'uf', 'ibge', 'ano', 'descricao_tipologia', 'municipio', 'NR_APOLICE', 'VL_PREMIO_LIQUIDO', 'VL_SUBVENCAO_FEDERAL', 'VALOR_INDENIZAÇÃO']]
+psr = carrega_parquet('PSR_COMPLETO.parquet')
 
 
 estados = {
@@ -196,9 +198,9 @@ cores_risco = {
     'Muito Baixo': '#4C78A8'
 }
 cores_segurado = {
-    'nao segurado': '#EECA3B',
-    'segurado sem sinistro': '#54A24B',
-    'segurado com sinistro': '#E45756'
+    'Não Segurada': '#EECA3B',
+    'Não Apresenta Sinistro': '#54A24B',
+    'Apresenta Sinistro': '#E45756'
 }
 desastres = {
     'Hidrológico': ['Alagamentos', 'Chuvas Intensas', 'Enxurradas', 'Inundações', 'Movimento de Massa'],
@@ -238,8 +240,8 @@ seg = {
     'EZZE Seguros S.A.': 'EZZE Seguros',
     'Itaú XL Seguros Corporativos S.A': 'Itaú XL Seguros',
 }
-psr.NM_RAZAO_SOCIAL = psr.NM_RAZAO_SOCIAL.map(seg)
-psr.PE_TAXA = psr.PE_TAXA * 100
+psr.seguradora = psr.seguradora.map(seg)
+psr.pe_taxa = psr.pe_taxa * 100
 
 # COLUNAS
 tabs = st.tabs(['UF do Brasil', 'Agro', 'América Latina', 'Créditos'])
@@ -254,8 +256,8 @@ with tabs[0]:
     uf_selectbox = select1.selectbox('Selecione o estado', list(estados.keys()), index=23)
     uf_selecionado = estados[uf_selectbox]
     grupo_desastre_selecionado = select2.selectbox('Selecione o grupo de desastre', list(desastres.keys()), index=0)
-    coord_municipio = select1.selectbox('Encontrar município',['-'] + dados_merge.iloc[:-45].query("abbrev_state == @uf_selecionado").name_muni.unique().tolist(), index=0)
-    ano_inicial, ano_final = select2.select_slider('Selecione o período', anos, value=(anos[0], anos[-1]))
+    # coord_municipio = select1.selectbox('Encontrar município',['-'] + dados_merge.iloc[:-45].query("abbrev_state == @uf_selecionado").name_muni.unique().tolist(), index=0)
+    ano_inicial, ano_final = col_dados.select_slider('Selecione o período', anos, value=(anos[0], anos[-1]))
 
 
 
@@ -279,7 +281,9 @@ with tabs[0]:
 
 
     # selecionando estado
-    tipologia_selecionada = col_dados.selectbox('Selecione a tipologia do desastre', desastres[grupo_desastre_selecionado], index=idx_select[grupo_desastre_selecionado], key='tipol')
+    desastre_col, mun_col = col_dados.columns([1, 1])
+    tipologia_selecionada = desastre_col.selectbox('Selecione a tipologia do desastre', desastres[grupo_desastre_selecionado], index=idx_select[grupo_desastre_selecionado], key='tipol')
+    coord_municipio = mun_col.selectbox('Encontrar município',['-'] + dados_merge.iloc[:-45].query("abbrev_state == @uf_selecionado").name_muni.unique().tolist(), index=0)
 
 
 
@@ -307,7 +311,7 @@ with tabs[0]:
 
 
     # QUERY
-    dados_atlas_query = dados_atlas.query("descricao_tipologia == @tipologia_selecionada & uf == @uf_selecionado & ano >= @ano_inicial & ano <= @ano_final")
+    dados_atlas_query = dados_atlas.query("grupo_de_desastre == @grupo_desastre_selecionado & descricao_tipologia == @tipologia_selecionada & uf == @uf_selecionado & ano >= @ano_inicial & ano <= @ano_final")
 
 
 
@@ -318,7 +322,7 @@ with tabs[0]:
     ocorrencias_merge.loc[np.isnan(ocorrencias_merge["ocorrencias"]), 'ocorrencias'] = 0
 
     classificacao_ocorrencias = classifica_risco(ocorrencias_merge, 'ocorrencias')  # mudadr classficador
-    fig_mapa = cria_mapa(classificacao_ocorrencias, malha_mun_estados, locais='code_muni', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_muni', lat=lat, lon=lon, zoom=5, titulo_legenda=f'Risco de {tipologia_selecionada}')
+    fig_mapa = cria_mapa(classificacao_ocorrencias, malha_mun_estados, locais='code_muni', cor='risco', lista_cores=cores_risco, dados_hover='ocorrencias', nome_hover='name_muni', lat=lat, lon=lon, zoom=zoom_uf, titulo_legenda=f'Risco de {tipologia_selecionada}')
     # fig_mapa = cria_mapa(classificacao_ocorrencias, malha_mun_estados, locais='code_muni', cor='ocorrencias', tons=list(cores_risco.values()), dados_hover='ocorrencias', nome_hover='name_muni', lat=lat, lon=lon, zoom=5, titulo_legenda=f'Risco de {tipologia_selecionada}')
     col_mapa.divider()
     col_mapa.subheader(f'Risco de {tipologia_selecionada} em {uf_selecionado} ({ano_inicial} - {ano_final})')
@@ -481,7 +485,7 @@ with tabs[0]:
     }
 
     with aba_hm2:
-        heatmap_query = dados_atlas.iloc[:62273].query("descricao_tipologia == @tipologia_selecionada & ano >= 2000")
+        heatmap_query = dados_atlas.iloc[:62273].query("grupo_de_desastre == @grupo_desastre_selecionado & descricao_tipologia == @tipologia_selecionada")
         pivot_hm = heatmap_query.pivot_table(index='ano', columns='uf', aggfunc='size', fill_value=0)
         pivot_hm = pivot_hm.reindex(columns=dados_atlas.uf.unique()[:-1], fill_value=0)
         pivot_hm = pivot_hm.reindex(index=anos, fill_value=0).transpose()
@@ -499,7 +503,7 @@ with tabs[0]:
         st.subheader(f'Ocorrências de *{tipologia_selecionada}* por estado de 1991 a 2022')
         st.plotly_chart(fig_hm, use_container_width=True)
     with aba_hm1:
-        heatmap_query2 = dados_atlas.iloc[:62273].query("grupo_de_desastre == @grupo_desastre_selecionado & uf == @uf_selecionado & ano >= 2000")
+        heatmap_query2 = dados_atlas.iloc[:62273].query("grupo_de_desastre == @grupo_desastre_selecionado & uf == @uf_selecionado")
         pivot_hm2 = heatmap_query2.pivot_table(index='ano', columns='descricao_tipologia', aggfunc='size', fill_value=0)
         pivot_hm2 = pivot_hm2.reindex(index=anos, fill_value=0).transpose()
         fig_hm2 = px.imshow(
@@ -518,20 +522,91 @@ with tabs[0]:
 
 
 with tabs[1]:
-    col_config, col_mapa_agro, col_metrics = st.columns([1, 3, 1], gap='large')
+    titulo_pagina = 'Mapa do Seguro Rural'
+    tipologias_psr = psr.descricao_tipologia.unique()[1:].tolist()
+    col_mapa_agro, col_metrics = st.columns([1, 1], gap='large')
+
+    # col_metrics.subheader('Configurações')
+    col_config1, col_config2 = col_metrics.columns([1, 1])
 
     # CONFIG
-    uf_psr = estados[col_config.selectbox('Estado (UF)', estados.keys(), index=23, key='uf_psr')]
-    tipologia_selecionada_psr = col_config.selectbox('Tipologia', psr.descricao_tipologia.unique()[1:], index=2, key='tipol_psr')
-    ano_inicial_psr, ano_final_psr = col_config.select_slider('Período', anos_psr, value=(anos_psr[0], anos_psr[-1]), key='periodo_psr')
+    estado_psr = col_config1.selectbox('Estado', estados.keys(), index=23, key='uf_psr')
+    uf_psr = estados[estado_psr]
+    coord_psr = col_config2.selectbox('Encontrar município',['-'] + dados_merge.iloc[:-45].query("abbrev_state == @uf_psr").name_muni.unique().tolist(), index=0, key='coord_psr')
+    tipologia_selecionada_psr = col_config1.selectbox('Evento', ['Todos os Eventos'] + tipologias_psr, index=2, key='tipol_psr')
+    ano_psr = col_config2.selectbox('Ano de Subscrição', anos_psr, index=15, key='ano_psr')
+    # ano_inicial_psr, ano_final_psr = col_config.select_slider('Período', anos_psr, value=(anos_psr[0], anos_psr[-1]), key='periodo_psr')
 
 
 
-    # AGRO
-    psrQ1 = psr.query("uf == @uf_psr & ano >= @ano_inicial_psr & ano <= @ano_final_psr")
-    psrQ2 = psrQ1.query("descricao_tipologia == @tipologia_selecionada_psr")
-  
+    zoom_uf_psr = 6
+    if coord_psr == '-':
+        lat_psr, lon_psr = coord_uf.query("abbrev_state == @uf_psr")[['lat', 'lon']].values[0]
+    else:
+        cod_muni_psr = dados_merge.loc[dados_merge.name_muni == coord_psr, 'code_muni'].values[0]
+        # print(cod_muni_psr)
+        lat_psr, lon_psr = coord_muni.query("codarea == @cod_muni_psr")[['lat', 'lon']].values[0]
+        # print(coord_muni.head())
+        zoom_uf_psr = 10
+
+
+
+    # QUERIES
+    psrQ1 = psr.query("uf == @uf_psr & ano == @ano_psr")
+    if tipologia_selecionada_psr != 'Todos os Eventos':
+        psrQ2 = psrQ1.query("descricao_tipologia == @tipologia_selecionada_psr")
+    else:
+        psrQ2 = psrQ1.query("descricao_tipologia != '-'")
+    # psrQ2 = psrQ1.query("descricao_tipologia == @tipologia_selecionada_psr")
+
+    malha_psr = carrega_malha(uf=uf_psr)
     merge_muni_psr = dados_merge.iloc[:-45].query("abbrev_state == @uf_psr")
+    # lat_psr, lon_psr = coord_uf.query("abbrev_state == @uf_psr")[['lat', 'lon']].values[0]
+
+
+
+    # BUBBLE PLOT
+    psr_year = psr.query("uf == @uf_psr")
+    psr_year_grouped = psr_year.drop(psr_year.query("descricao_tipologia == '-'").index).groupby(['ano', 'descricao_tipologia'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
+    # print(psr_year_grouped.head())
+
+
+
+    fig_psr_year = px.scatter(psr_year_grouped, x="ano", y='descricao_tipologia', size='ocorrencias', 
+        color='descricao_tipologia', size_max=50, color_discrete_map=mapa_de_cores,
+        labels={
+            "ano": "Ano", 
+            "descricao_tipologia": "Desastre"
+        }
+    )
+    fig_psr_year.update_layout(showlegend=False, legend_orientation='h', margin={"r":0,"t":0,"l":0,"b":0})
+    fig_psr_year.update_xaxes(showgrid=True)
+    # col_dados.caption('Quanto maior o círculo, maior o número de ocorrências do desastre')
+    col_metrics.plotly_chart(fig_psr_year)
+
+
+
+    # SINISTRO COMUM
+    psrQ1_2 = psrQ1.drop(psrQ1.query("descricao_tipologia == '-'").index)
+    sin_comum = psrQ1_2.groupby(['ibge', 'descricao_tipologia'], as_index=False).size().sort_values('size', ascending=False).drop_duplicates(subset='ibge', keep='first').rename(columns={'size': 'ocorrencias', 'descricao_tipologia': 'evento_mais_comum'})
+    sin_comum_merge = merge_muni_psr.merge(sin_comum, how='left', left_on='code_muni', right_on='ibge')
+    sin_comum_merge.loc[np.isnan(sin_comum_merge["ocorrencias"]), 'ocorrencias'] = 0
+    sin_comum_merge.evento_mais_comum = sin_comum_merge.evento_mais_comum.fillna('Sem Dados')
+
+    # col_mapa.subheader(f'Desastre mais comum por Município ({ano_inicial} - {ano_final})')
+    col_mapa_agro.subheader(f'Evento com mais Chamadas de Sinistro por Município ({uf_psr} - {ano_psr})')
+    col_mapa_agro.plotly_chart(cria_mapa(sin_comum_merge, malha_psr, locais='code_muni', cor='evento_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_muni', dados_hover=['evento_mais_comum', 'ocorrencias'], zoom=zoom_uf_psr, lat=lat_psr, lon=lon_psr, titulo_legenda='Evento mais comum'), use_container_width=True)
+
+  
+    
+    # AREAS SEGURADAS  talvez mostrar a seguradora mais na moda de cada muni segurado
+    # sin = psrQ1.groupby(['ibge'], as_index=False).size()
+    # sin_merge = merge_muni_psr.merge(sin, how='left', left_on='code_muni', right_on='ibge').rename(columns={'size': 'sinistros'})
+    # sin_merge.sinistros = sin_merge.sinistros.fillna(0)
+    # sin_merge.ibge = sin_merge.ibge.fillna('-')
+    # sin_merge['area_segurada'] = np.where(sin_merge.ibge != '-', 'sim', 'nao')
+    # print(sin_merge.head())
+
     sin = psrQ2.groupby(['ibge'], as_index=False).size()
     sin_merge = merge_muni_psr.merge(sin, how='left', left_on='code_muni', right_on='ibge').rename(columns={'size': 'sinistros'})
     sin_merge.sinistros = sin_merge.sinistros.fillna(0)
@@ -539,23 +614,119 @@ with tabs[1]:
     sin_segurado = classifica_segurado(psrQ1, sin_merge)
     # sin_risco = classifica_risco(sin_merge, 'sinistros')
 
-    malha_psr = carrega_malha(uf=uf_psr)
-    lat_psr, lon_psr = coord_uf.query("abbrev_state == @uf_psr")[['lat', 'lon']].values[0]
-    sin_fig = cria_mapa(sin_segurado, malha_psr, locais='code_muni', cor='seg', lista_cores=cores_segurado, dados_hover='sinistros', nome_hover='name_muni', lat=lat_psr, lon=lon_psr, zoom=6, titulo_legenda=f'Sinistros de {tipologia_selecionada_psr}')
+    sin_fig = cria_mapa(sin_segurado, malha_psr, locais='code_muni', cor='seg', lista_cores=cores_segurado, dados_hover='sinistros', nome_hover='name_muni', lat=lat_psr, lon=lon_psr, zoom=zoom_uf_psr, titulo_legenda=f'Tipo de Área Segurada')
+    # sin_fig = cria_mapa(sin_merge, malha_psr, locais='code_muni', cor='area_segurada', lista_cores=cores_segurado, dados_hover='sinistros', nome_hover='name_muni', lat=lat_psr, lon=lon_psr, zoom=zoom_uf_psr, titulo_legenda=f'Área Segurada')
 
-    col_mapa_agro.subheader(f'Sinistros de {tipologia_selecionada_psr} por Município ({ano_inicial_psr} - {ano_final_psr})')
+    col_mapa_agro.divider()
+    col_mapa_agro.subheader(f'Mapa de Áreas Seguradas ({uf_psr} - {ano_psr})')
     col_mapa_agro.plotly_chart(sin_fig, use_container_width=True)
 
 
-    lr = psrQ1.groupby(['uf'], as_index=False)[['VL_PREMIO_LIQUIDO', 'VL_SUBVENCAO_FEDERAL', 'VALOR_INDENIZAÇÃO']].sum()
-    lr['loss_ratio'] = lr.VALOR_INDENIZAÇÃO / (lr.VL_PREMIO_LIQUIDO + lr.VL_SUBVENCAO_FEDERAL)
+
+    lr = psrQ1.groupby(['uf'], as_index=False)[['valor_premio', 'valor_subvencao', 'valor_indenizacao']].sum()
+    # lr = psrQ1.groupby(['uf'], as_index=False)[['VL_PREMIO_LIQUIDO', 'VL_SUBVENCAO_FEDERAL', 'VALOR_INDENIZAÇÃO']].sum()
+    lr['loss_ratio'] = lr.valor_indenizacao / (lr.valor_premio + lr.valor_subvencao)
+    # lr['loss_ratio'] = lr.VALOR_INDENIZAÇÃO / (lr.VL_PREMIO_LIQUIDO + lr.VL_SUBVENCAO_FEDERAL)
+
+    atlas_psr = dados_atlas.query("uf == @uf_psr & ano == @ano_psr")
+    if tipologia_selecionada_psr != 'Todos os Eventos':
+        atlas_psr = atlas_psr.query("descricao_tipologia == @tipologia_selecionada_psr")
+        
 
 
     # METRICS
-    col_metrics.metric('Total de Apólices', psrQ1.NR_APOLICE.nunique())
-    col_metrics.metric(f'Sinistros de {tipologia_selecionada_psr}', len(psrQ2))
+    col_metrics.subheader(f'Informações ({estado_psr} - {ano_psr})')
+    col_metrics_col1, col_metrics_col2 = col_metrics.columns([1, 1])
+    col_metrics_col1.metric(f'Total de Ocorrências Reportadas de {tipologia_selecionada_psr}', len(atlas_psr))
+    col_metrics_col2.metric('Total de Apólices', psrQ1.num_apolice.nunique())
+    col_metrics_col1.metric(f'Sinistros de {tipologia_selecionada_psr}', len(psrQ2))
     lr_metric = f'{lr.loss_ratio.multiply(100).astype(int).values[0]}%'
-    col_metrics.metric('Loss Ratio', lr_metric)
+    col_metrics_col2.metric(f'Índice de Sinistralidade do Estado', lr_metric)
+
+
+
+    # PIE CHART
+    col_metrics.subheader(f'Representatividade dos Eventos no Total Indenizado ({uf_psr} - {ano_psr})')
+    psrPie = psrQ1.drop(psrQ1.query("descricao_tipologia == '-'").index).groupby('descricao_tipologia')['valor_indenizacao'].sum()
+    figpie = px.pie(
+        psrPie,
+        values='valor_indenizacao',
+        names=psrPie.index,
+        # title=f'Porcentagem dos Eventos Predominantes em {uf_psr}'
+    )
+    figpie.update_layout(
+        legend=dict(font=dict(size=16)),
+        legend_title=dict(font=dict(size=14), text='Culturas')
+    )
+    col_metrics.plotly_chart(figpie, use_container_width=True)
+
+   
+
+    # DATAFRAME
+    psrG_muni = psrQ2.groupby('municipio').agg({
+        'descricao_tipologia': 'count',
+        # 'NM_CULTURA_GLOBAL': lambda x: x.mode().iloc[0],
+        'pe_taxa': 'mean',
+        'prod_segurada': 'mean',
+        'seguradora': lambda x: x.mode().iloc[0],
+    }).reset_index()
+    psrApol_muni = psrQ2.groupby(['municipio'], as_index=False).size().merge(psrQ1.groupby(['municipio'], as_index=False)['num_apolice'].nunique(), how='left', on='municipio')
+    psrG_muni['apolices'] = psrApol_muni['num_apolice']
+    psrG_muni['sin/apol'] = (psrApol_muni['size'] / psrApol_muni['num_apolice']) * 100
+
+    psrG_muni = psrQ2.groupby(['municipio', 'cultura'], as_index=False)['area_total'].sum().sort_values('area_total', ascending=False).drop_duplicates('municipio', keep='first').merge(psrG_muni, how='left', on='municipio').drop('area_total', axis=1)
+
+    st.divider()
+    st.subheader(f'Sinistros de {tipologia_selecionada_psr} por Município ({ano_psr})')
+    st.dataframe(
+        psrG_muni.sort_values('descricao_tipologia', ascending=False).head(10),
+        hide_index=True, 
+        column_config={
+            'municipio': st.column_config.TextColumn('Município'),
+            'descricao_tipologia': st.column_config.TextColumn('Total Sinistros'),
+            'apolices': st.column_config.TextColumn('Total Apólices'),
+            'cultura': st.column_config.TextColumn('Cultura mais Comum'),
+            'seguradora': st.column_config.TextColumn('Seguradora mais Comum'),
+            'prod_estimada': st.column_config.NumberColumn(
+                'Média Prod. Segurada',
+                format="%.2f",
+            ),
+            'pe_taxa': st.column_config.NumberColumn(
+                'Média Taxa de Prêmio',
+                format="%.2f%%",
+            ),
+            'sin/apol': st.column_config.NumberColumn(
+                'Perc. das Apólices com Sinistro',
+                format="%.2f%%",
+            )
+        },
+        use_container_width=True
+    )
+
+
+
+    # HEATMAP
+    st.divider()
+    hm_query_psr = psr
+    if tipologia_selecionada_psr != 'Todos os Eventos':
+        hm_query_psr = psr.query("descricao_tipologia == @tipologia_selecionada_psr")
+    pivot_hm_psr = hm_query_psr.pivot_table(index='ano', columns='uf', aggfunc='size', fill_value=0)
+    # pivot_hm_psr = pivot_hm_psr.reindex(columns=psr.uf.unique(), fill_value=0)
+    pivot_hm_psr = pivot_hm_psr.reindex(index=anos_psr, fill_value=0).transpose()
+    fig_hm_psr = px.imshow(
+        pivot_hm_psr,
+        labels=dict(x="Ano", y="Estado (UF)", color="Total Chamadas de Sinistro"),
+        x=pivot_hm_psr.columns,
+        y=pivot_hm_psr.index,
+        color_continuous_scale='Greys',
+    )
+    fig_hm_psr.update_layout(
+        yaxis_nticks=len(pivot_hm_psr),
+        height=700
+    )
+    st.subheader(f'Chamadas de Sinistro de *{tipologia_selecionada_psr}* por estado de 2006 a 2021')
+    st.caption('Apenas os estados com pelo menos um sinistro serão exibidos')
+    st.plotly_chart(fig_hm_psr, use_container_width=True)
 
 
 
