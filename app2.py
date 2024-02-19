@@ -693,13 +693,13 @@ with tabs[1]:
 
 
     # PIE CHART
-    # col_metrics.subheader(f'Representatividade dos Eventos Climáticos no Total Indenizado ({uf_psr} - {ano_psr})')
+    col_metrics.write(f'**Representatividade dos Eventos Climáticos no Total Indenizado ({uf_psr} - {ano_psr})**')
     psrPie = psrQ1.drop(psrQ1.query("descricao_tipologia == '-'").index).groupby('descricao_tipologia')['valor_indenizacao'].sum()
     figpie = px.pie(
         psrPie,
         values='valor_indenizacao',
         names=psrPie.index,
-        title=f'Representatividade dos Eventos Climáticos no Total Indenizado ({uf_psr} - {ano_psr})'
+        #title=f'Representatividade dos Eventos Climáticos no Total Indenizado ({uf_psr} - {ano_psr})'
     )
     figpie.update_layout(
         legend=dict(font=dict(size=16)),
@@ -762,7 +762,7 @@ with tabs[1]:
         height=400,
         use_container_width=True
     )
-    st.download_button('Baixar tabela', psrG_muni.to_csv(sep=';', index=False), file_name=f'psr_{uf_psr}_{ano_psr}.csv', mime='text/csv', use_container_width=True)
+    st.download_button('Baixar tabela', psrG_muni.to_csv(sep=',', index=False), file_name=f'psr_{uf_psr}_{ano_psr}.csv', use_container_width=True)
 
 
 
