@@ -56,6 +56,7 @@ def calcula_ocorrencias(df, cols_selecionadas, cols_agrupadas):
     return df.groupby(cols_agrupadas, as_index=False)[cols_selecionadas].count().rename(columns={'protocolo': 'ocorrencias'})
 
 def classifica_risco(df, col_ocorrencias):
+    # df = dataframe.copy()
     quartis = df[col_ocorrencias].quantile([0.2, 0.4, 0.6, 0.8]).values
     risco = []
     for valor in df[col_ocorrencias]:
@@ -72,17 +73,29 @@ def classifica_risco(df, col_ocorrencias):
     df['risco'] = risco
     return df
 
-def classifica_segurado(base, dataframe):
-    df = dataframe.copy()
-    nenhum = set(base.query("descricao_tipologia == '-'").ibge)
-    algum = set(base.query("descricao_tipologia != '-'").ibge)
-    resultado = list(nenhum - algum)
-    df['seg'] = np.where(df.ibge == '-', 'Não Segurada', 'Apresenta Sinistro')
-    df.seg = df.seg.mask(df.code_muni.isin(resultado), 'Não Apresenta Sinistro')
+def classifica_segurado(df, munis, munis_segurados, munis_sinistrados):
+    # df = dataframe.copy()
+    tudo = set(munis)
+    tenho = set(munis_segurados)
+    especifico = set(munis_sinistrados)
+
+    nao_segurado = list(tudo - tenho)
+    nao_sinistrado = list(tenho - especifico)
+
+    df['seg'] = np.where(df.code_muni.isin(nao_segurado), 'Não Segurada', 'Apresenta Sinistro')
+    df.loc[df[df.code_muni.isin(nao_sinistrado)].index, 'seg'] = 'Não Apresenta Sinistro'
+    # df.seg = np.where(df.ibge.isin(nao_sinistrado), 'Não Apresenta Sinistro', 'Apresenta Sinistro')
+    
+    # nenhum = set(base.query("descricao_tipologia == '-'").ibge)
+    # algum = set(base.query("descricao_tipologia != '-'").ibge)
+    # resultado = list(nenhum - algum)
+    # df['seg'] = np.where(df.ibge == '-', 'Não Segurada', 'Apresenta Sinistro')
+    # df.seg = df.seg.mask(df.code_muni.isin(resultado), 'Não Apresenta Sinistro')
     return df
 
-def classifica_lossratio(dados):
-    df = dados.copy()
+@st.cache_data
+def classifica_lossratio(df):
+    # df = dados.copy()
     df['classe_sinistralidade'] = pd.cut(df.loss_ratio, [0.0, 20, 40, 60, 80, 100, 1000], labels=['Abaixo de 20%', 'De 20% a 40%', 'De 40% e 60%', 'De 60% e 80%', 'De 80% e 100%', 'Acima de 100%'])
     return df
 
@@ -535,7 +548,6 @@ with tabs[0]:
 
 
 with tabs[1]:
-    titulo_pagina = 'Mapa do Seguro Rural'
     tipologias_psr = psr.descricao_tipologia.unique()[1:].tolist()
     col_mapa_agro, col_metrics = st.columns([1, 1], gap='large')
 
@@ -627,7 +639,7 @@ with tabs[1]:
     # MAPA SINISTRALIDADE
     sin_muni = psrQ1.groupby(['ibge'], as_index=False)[['valor_premio', 'valor_subvencao', 'valor_indenizacao']].sum().copy()
     sin_muni['loss_ratio'] = (sin_muni.valor_indenizacao / (sin_muni.valor_premio + sin_muni.valor_subvencao)) * 100 + 1e-6
-    print(sin_muni)
+
     sin_muni_merge = merge_muni_psr.merge(sin_muni, how='left', left_on='code_muni', right_on='ibge')
     sin_muni_merge.loss_ratio = sin_muni_merge.loss_ratio.fillna(1e-6)
     sin_muni_merge.ibge = sin_muni_merge.ibge.fillna('-')
@@ -646,13 +658,11 @@ with tabs[1]:
     sin_merge = merge_muni_psr.merge(sin, how='left', left_on='code_muni', right_on='ibge').rename(columns={'size': 'sinistros'})
     sin_merge.sinistros = sin_merge.sinistros.fillna(0)
     sin_merge.ibge = sin_merge.ibge.fillna('-')
-    sin_segurado = classifica_segurado(psrQ1, sin_merge)
-    # sin_risco = classifica_risco(sin_merge, 'sinistros')
+    sin_segurado = classifica_segurado(sin_merge, merge_muni_psr.code_muni, psrQ1.ibge, psrQ2.ibge)
+    print(sin_segurado)
 
     sin_fig = cria_mapa(sin_segurado, malha_psr, locais='code_muni', cor='seg', lista_cores=cores_segurado, dados_hover='sinistros', nome_hover='name_muni', lat=lat_psr, lon=lon_psr, zoom=zoom_uf_psr, titulo_legenda=f'Tipo de Área Segurada')
-    # sin_fig = cria_mapa(sin_merge, malha_psr, locais='code_muni', cor='area_segurada', lista_cores=cores_segurado, dados_hover='sinistros', nome_hover='name_muni', lat=lat_psr, lon=lon_psr, zoom=zoom_uf_psr, titulo_legenda=f'Área Segurada')
-
-    # col_mapa_agro.divider()
+  
     col_mapa_agro.subheader(f'Mapa de Áreas Seguradas ({uf_psr} - {ano_psr})')
     col_mapa_agro.plotly_chart(sin_fig, use_container_width=True)
     col_mapa_agro.divider()
