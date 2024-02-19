@@ -8,7 +8,7 @@ import geopandas as gpd
 import plotly.express as px
 
 # -------------------- CONFIGURAÇÕES ----------------------
-titulo_pagina = 'Mapa de Desastres Climáticos'
+titulo_pagina = 'Mapa de Eventos Climáticos'
 layout = 'wide'
 st.set_page_config(page_title=titulo_pagina, layout=layout)
 st.title(titulo_pagina)
@@ -108,7 +108,7 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, tons_midpo
         category_orders={cor: list(lista_cores.keys())},
         labels={'risco': 'Risco', 'ocorrencias': 'Ocorrências', 'code_muni': 'Código Municipal', 'sinistros': 'Sinistros',
                 'code_state': 'Código', 'desastre_mais_comum': 'Desastre mais comum', 'evento_mais_comum': 'Evento mais comum',
-                'seg': 'Tipo de Área Segurada'},
+                'seg': 'Tipo de Área Segurada', 'classe_sinistralidade': 'Classificação', 'loss_ratio': 'Índice de Sinistralidade'},
         locations=locais, featureidkey=featureid,
         center={'lat': lat, 'lon': lon}, zoom=zoom, 
         mapbox_style='carto-positron', height=500,
@@ -282,7 +282,6 @@ with tabs[0]:
     uf_selectbox = select1.selectbox('Selecione o estado', list(estados.keys()), index=23)
     uf_selecionado = estados[uf_selectbox]
     grupo_desastre_selecionado = select2.selectbox('Selecione o grupo de desastre', list(desastres.keys()), index=0)
-    # coord_municipio = select1.selectbox('Encontrar município',['-'] + dados_merge.iloc[:-45].query("abbrev_state == @uf_selecionado").name_muni.unique().tolist(), index=0)
     ano_inicial, ano_final = col_dados.select_slider('Selecione o período', anos, value=(anos[0], anos[-1]))
 
 
@@ -308,6 +307,7 @@ with tabs[0]:
 
     # selecionando estado
     desastre_col, mun_col = col_dados.columns([1, 1])
+
     tipologia_selecionada = desastre_col.selectbox('Selecione a tipologia do desastre', desastres[grupo_desastre_selecionado], index=idx_select[grupo_desastre_selecionado], key='tipol')
     coord_municipio = mun_col.selectbox('Encontrar município',['-'] + dados_merge.iloc[:-45].query("abbrev_state == @uf_selecionado").name_muni.unique().tolist(), index=0)
 
@@ -327,6 +327,7 @@ with tabs[0]:
 
     # MAPA DE DESASTRES COMUNS
     tipologias_mais_comuns_por_muni = dados_atlas.query("grupo_de_desastre == @grupo_desastre_selecionado & uf == @uf_selecionado & ano >= @ano_inicial & ano <= @ano_final").groupby(['ibge', 'descricao_tipologia'], as_index=False).size().sort_values('size', ascending=False).drop_duplicates(subset='ibge', keep='first').rename(columns={'size': 'ocorrencias', 'descricao_tipologia': 'desastre_mais_comum'})
+
     merge_muni_2 = dados_merge.query("abbrev_state == @uf_selecionado").groupby(['code_muni', 'name_muni'], as_index=False).size().drop('size', axis=1)
     tipol_merge = merge_muni_2.merge(tipologias_mais_comuns_por_muni, how='left', left_on='code_muni', right_on='ibge').drop('ibge', axis=1)
     tipol_merge.loc[np.isnan(tipol_merge["ocorrencias"]), 'ocorrencias'] = 0
@@ -338,7 +339,6 @@ with tabs[0]:
 
     # QUERY
     dados_atlas_query = dados_atlas.query("grupo_de_desastre == @grupo_desastre_selecionado & descricao_tipologia == @tipologia_selecionada & uf == @uf_selecionado & ano >= @ano_inicial & ano <= @ano_final")
-
 
 
     # MAPA RISCO
@@ -509,6 +509,7 @@ with tabs[0]:
         'Meteorológico': 'Tempo',
         'Outros': 'Brwnyl'
     }
+    cor_hm = cls_scales[grupo_desastre_selecionado]
 
     with aba_hm2:
         heatmap_query = dados_atlas.iloc[:62273].query("grupo_de_desastre == @grupo_desastre_selecionado & descricao_tipologia == @tipologia_selecionada")
@@ -520,7 +521,7 @@ with tabs[0]:
             labels=dict(x="Ano", y="Estado (UF)", color="Total ocorrências"),
             x=pivot_hm.columns,
             y=pivot_hm.index,
-            color_continuous_scale=cls_scales[grupo_desastre_selecionado],
+            color_continuous_scale=cor_hm,
         )
         fig_hm.update_layout(
             yaxis_nticks=len(pivot_hm),
@@ -618,8 +619,8 @@ with tabs[1]:
 
 
     # TIPOLOGIA
-    col_metrics.subheader(f'Chamadas de Sinistro e Reportes de Desastres ({uf_psr} - {ano_psr})')
-    tipologia_selecionada_psr = col_metrics.selectbox('Evento', ['Todos os Eventos'] + tipologias_psr, index=2, key='tipol_psr')
+    col_metrics.subheader(f'Sinistros e Reportes de Desastres ({uf_psr} - {ano_psr})')
+    tipologia_selecionada_psr = col_metrics.selectbox('Evento Climático', ['Todos os Eventos'] + tipologias_psr, index=2, key='tipol_psr')
 
 
 
@@ -722,11 +723,22 @@ with tabs[1]:
 
     psrG_muni = psrQ2.groupby(['municipio', 'cultura'], as_index=False)['area_total'].sum().sort_values('area_total', ascending=False).drop_duplicates('municipio', keep='first').merge(psrG_muni, how='left', on='municipio').drop('area_total', axis=1)
 
-    st.divider()
-    st.subheader(f'Top 10 Municípios com Maior Número de Sinistros de {tipologia_selecionada_psr} por Apólice ({ano_psr})')
     col_order = ['municipio', 'cultura', 'apolices', 'descricao_tipologia', 'sin/apol', 'prod_segurada', 'pe_taxa', 'seguradora']
+    tabela_cols = {
+        'Média Taxa de Prêmio': 'pe_taxa',
+        'Total Sinistros': 'descricao_tipologia',
+        'Total Apólices': 'apolices',
+        'Média de Sinistros por Apólice': 'sin/apol',
+        'Média Prod. Segurada': 'prod_segurada'
+    }
+
+    st.divider()
+    tit_tabela, tabela_ordem = st.columns([4, 1])
+    ordem_tabela1 = tabela_ordem.selectbox('Ordenar por', ['Média Taxa de Prêmio', 'Total Sinistros', 'Total Apólices', 'Média de Sinistros por Apólice', 'Média Prod. Segurada'], index=0, key='ordem_psr')
+    ordem_tabela2 = tabela_cols[ordem_tabela1]
+    tit_tabela.subheader(f'Dados dos Municípios com Sinistros de {tipologia_selecionada_psr} ({ano_psr})')
     st.dataframe(
-        psrG_muni[col_order].sort_values('sin/apol', ascending=False).head(10),
+        psrG_muni[col_order].sort_values(ordem_tabela2, ascending=False),
         hide_index=True, 
         column_config={
             'municipio': st.column_config.TextColumn('Município'),
@@ -735,7 +747,7 @@ with tabs[1]:
             'cultura': st.column_config.TextColumn('Cultura mais Comum'),
             'seguradora': st.column_config.TextColumn('Seguradora mais Comum'),
             'prod_segurada': st.column_config.NumberColumn(
-                'Média Prod. Segurada',
+                'Média Prod. Segurada (kg/ha)',
                 format="%.2f",
             ),
             'pe_taxa': st.column_config.NumberColumn(
@@ -747,8 +759,10 @@ with tabs[1]:
                 format="%.2f",
             )
         },
+        height=400,
         use_container_width=True
     )
+    st.download_button('Baixar tabela', psrG_muni.to_csv(sep=';', index=False), file_name=f'psr_{uf_psr}_{ano_psr}.csv', mime='text/csv', use_container_width=True)
 
 
 
