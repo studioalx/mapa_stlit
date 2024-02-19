@@ -659,13 +659,11 @@ with tabs[1]:
     sin_merge.sinistros = sin_merge.sinistros.fillna(0)
     sin_merge.ibge = sin_merge.ibge.fillna('-')
     sin_segurado = classifica_segurado(sin_merge, merge_muni_psr.code_muni, psrQ1.ibge, psrQ2.ibge)
-    print(sin_segurado)
 
     sin_fig = cria_mapa(sin_segurado, malha_psr, locais='code_muni', cor='seg', lista_cores=cores_segurado, dados_hover='sinistros', nome_hover='name_muni', lat=lat_psr, lon=lon_psr, zoom=zoom_uf_psr, titulo_legenda=f'Tipo de Área Segurada')
   
     col_mapa_agro.subheader(f'Mapa de Áreas Seguradas ({uf_psr} - {ano_psr})')
     col_mapa_agro.plotly_chart(sin_fig, use_container_width=True)
-    col_mapa_agro.divider()
 
 
 
@@ -720,14 +718,15 @@ with tabs[1]:
     }).reset_index()
     psrApol_muni = psrQ2.groupby(['municipio'], as_index=False).size().merge(psrQ1.groupby(['municipio'], as_index=False)['num_apolice'].nunique(), how='left', on='municipio')
     psrG_muni['apolices'] = psrApol_muni['num_apolice']
-    psrG_muni['sin/apol'] = (psrApol_muni['size'] / psrApol_muni['num_apolice']) * 100
+    psrG_muni['sin/apol'] = (psrApol_muni['size'] / psrApol_muni['num_apolice'])
 
     psrG_muni = psrQ2.groupby(['municipio', 'cultura'], as_index=False)['area_total'].sum().sort_values('area_total', ascending=False).drop_duplicates('municipio', keep='first').merge(psrG_muni, how='left', on='municipio').drop('area_total', axis=1)
 
     st.divider()
-    st.subheader(f'Sinistros de {tipologia_selecionada_psr} por Município ({ano_psr})')
+    st.subheader(f'Top 10 Municípios com Maior Número de Sinistros de {tipologia_selecionada_psr} por Apólice ({ano_psr})')
+    col_order = ['municipio', 'cultura', 'apolices', 'descricao_tipologia', 'sin/apol', 'prod_segurada', 'pe_taxa', 'seguradora']
     st.dataframe(
-        psrG_muni.sort_values('descricao_tipologia', ascending=False).head(10),
+        psrG_muni[col_order].sort_values('sin/apol', ascending=False).head(10),
         hide_index=True, 
         column_config={
             'municipio': st.column_config.TextColumn('Município'),
@@ -735,7 +734,7 @@ with tabs[1]:
             'apolices': st.column_config.TextColumn('Total Apólices'),
             'cultura': st.column_config.TextColumn('Cultura mais Comum'),
             'seguradora': st.column_config.TextColumn('Seguradora mais Comum'),
-            'prod_estimada': st.column_config.NumberColumn(
+            'prod_segurada': st.column_config.NumberColumn(
                 'Média Prod. Segurada',
                 format="%.2f",
             ),
@@ -744,8 +743,8 @@ with tabs[1]:
                 format="%.2f%%",
             ),
             'sin/apol': st.column_config.NumberColumn(
-                'Perc. das Apólices com Sinistro',
-                format="%.2f%%",
+                'Média de Sinistros por Apólice',
+                format="%.2f",
             )
         },
         use_container_width=True
@@ -1034,4 +1033,5 @@ with tabs[3]:
     #### Source
     - **The Emergency Events Database (EM-DAT)** , Centre for Research on the Epidemiology of Disasters (CRED) / Université catholique de Louvain (UCLouvain), Brussels, Belgium – [www.emdat.be](https://www.emdadt.be/).
     - **Atlas Digital de Desastres no Brasil** - [www.atlasdigital.mdr.gov.br/](http://atlasdigital.mdr.gov.br/).
+    - **Sistema de Subvenção Econômica ao Prêmio do Seguro Rural** - SISSER - Portal de Dados Abertos do Ministério da Agricultura e Pecuária - [dados.agricultura.gov.br/dataset/sisser3](https://dados.agricultura.gov.br/dataset/sisser3).
     ''')
