@@ -282,7 +282,7 @@ with tabs[0]:
     uf_selectbox = select1.selectbox('Selecione o estado', list(estados.keys()), index=23)
     uf_selecionado = estados[uf_selectbox]
     grupo_desastre_selecionado = select2.selectbox('Selecione o grupo de desastre', list(desastres.keys()), index=0)
-    ano_inicial, ano_final = col_dados.select_slider('Selecione o período', anos, value=(anos[0], anos[-1]))
+    ano_inicial, ano_final = col_dados.select_slider('Selecione o Intervalo de Anos', anos, value=(anos[0], anos[-1]))
 
 
 
@@ -361,7 +361,8 @@ with tabs[0]:
     met3, met4 = col_dados.columns([1, 1])
 
     met1.metric('Total de Ocorrências', len(dados_atlas_query))
-    met2.metric('Média de Ocorrências por Ano', dados_atlas_query.groupby('ano').size().mean().astype(int))
+    med_anual = dados_atlas_query.groupby('ano').size().mean().astype(int) if dados_atlas_query.groupby('ano').size().any() else 0
+    met2.metric('Média de Ocorrências por Ano', med_anual)
     muni_ocorr = math.ceil(len(classificacao_ocorrencias.query("ocorrencias > 0")) / len(classificacao_ocorrencias) * 100)
     met3.metric('% dos Municípios com no *mínimo* Uma Ocorrência', f'{muni_ocorr}%')
     area_risco = math.ceil(classificacao_ocorrencias.loc[classificacao_ocorrencias.query("risco == 'Muito Alto' | risco == 'Alto'").index, "AREA_KM2"].sum() / classificacao_ocorrencias.AREA_KM2.sum() * 100)
@@ -723,7 +724,7 @@ with tabs[1]:
 
     psrG_muni = psrQ2.groupby(['municipio', 'cultura'], as_index=False)['area_total'].sum().sort_values('area_total', ascending=False).drop_duplicates('municipio', keep='first').merge(psrG_muni, how='left', on='municipio').drop('area_total', axis=1)
 
-    col_order = ['municipio', 'cultura', 'apolices', 'descricao_tipologia', 'sin/apol', 'prod_segurada', 'pe_taxa', 'seguradora']
+    col_order = ['municipio', 'cultura', 'apolices', 'descricao_tipologia', 'sin/apol', 'pe_taxa', 'prod_segurada', 'seguradora']
     tabela_cols = {
         'Média Taxa de Prêmio': 'pe_taxa',
         'Total Sinistros': 'descricao_tipologia',
@@ -776,7 +777,7 @@ with tabs[1]:
     pivot_hm_psr = pivot_hm_psr.reindex(index=anos_psr, fill_value=0).transpose()
     fig_hm_psr = px.imshow(
         pivot_hm_psr,
-        labels=dict(x="Ano", y="Estado (UF)", color="Total Chamadas de Sinistro"),
+        labels=dict(x="Ano", y="Estado (UF)", color="Total de Sinistro"),
         x=pivot_hm_psr.columns,
         y=pivot_hm_psr.index,
         color_continuous_scale='Greys',
@@ -785,7 +786,7 @@ with tabs[1]:
         yaxis_nticks=len(pivot_hm_psr),
         height=700
     )
-    st.subheader(f'Chamadas de Sinistro de *{tipologia_selecionada_psr}* por estado de 2006 a 2021')
+    st.subheader(f'Sinistros de *{tipologia_selecionada_psr}* por estado de 2006 a 2021')
     st.caption('Apenas os estados com pelo menos um sinistro serão exibidos')
     st.plotly_chart(fig_hm_psr, use_container_width=True)
 
@@ -793,12 +794,10 @@ with tabs[1]:
 
 with tabs[2]:
     col_mapa_br, col_dados_br = st.columns([1, 1], gap='large')
- 
-
 
     # SELECTBOX
     grupo_desastre_selecionado_br = col_dados_br.selectbox('Selecione o grupo de desastre', list(desastres.keys()), index=0, key='gp_desastre_br')
-    ano_inicial_br, ano_final_br = col_dados_br.select_slider('Selecione o período', anos_latam, value=(anos_latam[0], anos_latam[-1]), key='periodo_br')
+    ano_inicial_br, ano_final_br = col_dados_br.select_slider('Selecione o Intervalo de Anos', anos_latam, value=(anos_latam[0], anos_latam[-1]), key='periodo_br')
 
 
 
@@ -878,31 +877,8 @@ with tabs[2]:
             ).data[0]
         )
         fig_mapa_br.update_traces(marker=dict(size=12, color='#222A2A'), selector=dict(mode='markers'))
-        # fig_mapa_br.update_traces(marker=dict(size=12, color='#222A2A', selector=dict(mode='markers')), selector=dict(mode='markers'))
-
-
-
-    # fig_mapa_br = cria_mapa(classificacao_ocorrencias_br, malha_america, locais='code_state', cor='ocorrencias', tons=list(cores_risco.values()), dados_hover='ocorrencias', nome_hover='name_state', titulo_legenda=f'Risco de {tipologia_selecionada_br}')
-
-    # scatter geo
-    # coord_selecionada = coord_latam.query("cod_uf == @iso & ano >= @ano_inicial_br & ano <= @ano_final_br & descricao_tipologia == @tipologia_selecionada_br")
-    # print(coord_selecionada.head())
-    # col_mapa_br.map(coord_selecionada, latitude='latitude', longitude='longitude', size=1000, zoom=3, use_container_width=True)
 
     col_mapa_br.plotly_chart(fig_mapa_br, use_container_width=True)
-
-
-
-    # if iso =='BRA' and (tipologia_selecionada_br in psr.descricao_tipologia.unique().tolist()):
-    #     psrQBR = psr.query("descricao_tipologia == @tipologia_selecionada_br & ano >= @ano_inicial_br & ano <= @ano_final_br")
-    #     merge_BR_psr = dados_merge.iloc[:-45].groupby(['abbrev_state', 'code_state', 'name_state'], as_index=False).size().drop('size', axis=1)
-    #     sinBR = psrQBR.groupby(['uf'], as_index=False).size()
-    #     sin_mergeBR = merge_BR_psr.merge(sinBR, how='left', left_on='abbrev_state', right_on='uf').rename(columns={'size': 'sinistros'})
-    #     sin_mergeBR.sinistros = sin_mergeBR.sinistros.fillna(0)
-    #     sin_riscoBR = classifica_risco(sin_mergeBR, 'sinistros')
-    #     sin_figBR = cria_mapa(sin_riscoBR, malha_brasil, locais='code_state', cor='risco', lista_cores=cores_risco, dados_hover='sinistros', nome_hover='name_state', lat=-15.78, lon=-47.92, zoom=3, titulo_legenda=f'Risco de Sinistros de {tipologia_selecionada_br}')
-    #     col_mapa_br.subheader(f'Sinistros de {tipologia_selecionada_br} nos dados da PSR por Município')
-    #     col_mapa_br.plotly_chart(sin_figBR, use_container_width=True)
 
 
 
@@ -928,7 +904,7 @@ with tabs[2]:
 
     # DATAFRAME E DOWNLOAD
     expander_br = col_dados_br.expander(f'Países com o maior risco de *{tipologia_selecionada_br}* na América Latina', expanded=True)
-    expander_br.dataframe(tabela_merge_br.head(), hide_index=True, 
+    expander_br.dataframe(tabela_merge_br.drop('cod_uf', axis=1).head(), hide_index=True, 
                           column_config={
                             'pais': st.column_config.TextColumn('País'),
                             'ocorrencias': st.column_config.TextColumn('Total ocorrências'),
@@ -944,51 +920,7 @@ with tabs[2]:
 
 
 
-    # PSR
-    # psr.groupby(['uf'], as_index=False).size()
-    # if tipologia_selecionada_br in psr.descricao_tipologia.unique().tolist():
-    #     psrQ = psr.query("descricao_tipologia == @tipologia_selecionada_br & ano >= @ano_inicial_br & ano <= @ano_final_br")
-    #     psrG = psrQ.groupby('uf').agg({
-    #         'descricao_tipologia': 'count',
-    #         'NM_CULTURA_GLOBAL': lambda x: x.mode().iloc[0],
-    #         'PE_TAXA': 'mean',
-    #         'NR_PRODUTIVIDADE_SEGURADA': 'mean',
-    #         'NM_RAZAO_SOCIAL': lambda x: x.mode().iloc[0],
-    #     }).reset_index()
-    #     psrApol = psrQ.groupby(['uf'], as_index=False).size().merge(psr.groupby(['uf'], as_index=False)['NR_APOLICE'].nunique(), how='left', on='uf')
-    #     psrG['apolices'] = psrApol['NR_APOLICE']
-    #     psrG['sin/apol'] = (psrApol['size'] / psrApol['NR_APOLICE']) * 100
-    #     st.divider()
-    #     st.subheader(f'Sinistros de {tipologia_selecionada_br} nos dados da PSR por UF (2006 - 2021)')
-    #     st.dataframe(
-    #         psrG,
-    #         hide_index=True, 
-    #         column_config={
-    #             'uf': st.column_config.TextColumn('Estado (UF)'),
-    #             'descricao_tipologia': st.column_config.TextColumn('Total Sinistros'),
-    #             'apolices': st.column_config.TextColumn('Total Apólices'),
-    #             'NM_CULTURA_GLOBAL': st.column_config.TextColumn('Cultura mais Comum'),
-    #             'NM_RAZAO_SOCIAL': st.column_config.TextColumn('Seguradora mais Comum'),
-    #             'NR_PRODUTIVIDADE_SEGURADA': st.column_config.NumberColumn(
-    #                 'Média Prod. Segurada',
-    #                 format="%.2f",
-    #             ),
-    #             'PE_TAXA': st.column_config.NumberColumn(
-    #                 'Média Taxa de Prêmio',
-    #                 format="%.2f%%",
-    #             ),
-    #             'sin/apol': st.column_config.NumberColumn(
-    #                 'Perc. de Sinistros por Apólice',
-    #                 format="%.2f%%",
-    #             )
-    #         },
-    #         use_container_width=True
-    #     )
-
-
-
     aba_hm1_br, aba_hm2_br = st.tabs(['Ocorrências por Grupo de Desastre', 'Ocorrências por País'])
-
     with aba_hm2_br:
         heatmap_query_br = dados_atlas.iloc[62273:].query("descricao_tipologia == @tipologia_selecionada & ano >= 2000")
         pivot_hm_br = heatmap_query_br.pivot_table(index='ano', columns='pais', aggfunc='size', fill_value=0)
@@ -1046,7 +978,7 @@ with tabs[3]:
     **Risk Scientists:** Ana Victoria & Beatriz Pimenta
                         
     #### Source
-    - **The Emergency Events Database (EM-DAT)** , Centre for Research on the Epidemiology of Disasters (CRED) / Université catholique de Louvain (UCLouvain), Brussels, Belgium – [www.emdat.be](https://www.emdadt.be/).
     - **Atlas Digital de Desastres no Brasil** - [www.atlasdigital.mdr.gov.br/](http://atlasdigital.mdr.gov.br/).
+    - **EM-DAT, CRED / UCLouvain, 2024, Brussels, Belgium**F – [www.emdat.be](https://www.emdat.be/).
     - **Sistema de Subvenção Econômica ao Prêmio do Seguro Rural** - SISSER - Portal de Dados Abertos do Ministério da Agricultura e Pecuária - [dados.agricultura.gov.br/dataset/sisser3](https://dados.agricultura.gov.br/dataset/sisser3).
     ''')
