@@ -483,10 +483,10 @@ with tabs[0]:
 
 
     # LINEPLOT
-    line_query = dados_atlas.iloc[:62273].query("descricao_tipologia == @tipologia_selecionada & uf == @uf_selecionado & ano >= 2000")
+    line_query = dados_atlas.iloc[:62273].query("descricao_tipologia == @tipologia_selecionada & uf == @uf_selecionado")
     cols_danos = ['agricultura', 'pecuaria', 'industria']  # 'total_danos_materiais'
     soma_danos = line_query.groupby(['ano'], as_index=False)[cols_danos].sum()
-    st.subheader(f'Danos causados por *{tipologia_selecionada}* em *{uf_selecionado} de 2000 a 2022*')
+    st.subheader(f'Danos causados por *{tipologia_selecionada}* em *{uf_selecionado} de 1991 a 2022*')
 
     fig_line = px.line(
         soma_danos, 'ano', cols_danos, markers=True, 
@@ -877,7 +877,8 @@ with tabs[2]:
                 hover_name=coord_pais['local']
             ).data[0]
         )
-        fig_mapa_br.update_traces(marker=dict(size=12, color='#222A2A', selector=dict(mode='markers')), selector=dict(mode='markers'))
+        fig_mapa_br.update_traces(marker=dict(size=12, color='#222A2A'), selector=dict(mode='markers'))
+        # fig_mapa_br.update_traces(marker=dict(size=12, color='#222A2A', selector=dict(mode='markers')), selector=dict(mode='markers'))
 
 
 
