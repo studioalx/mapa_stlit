@@ -704,7 +704,7 @@ with tabs[1]:
     )
     figpie.update_layout(
         legend=dict(font=dict(size=16)),
-        legend_title=dict(font=dict(size=14), text='Culturas')
+        legend_title=dict(font=dict(size=14), text='Evento Climático')
     )
     col_metrics.plotly_chart(figpie, use_container_width=True)
 
@@ -979,6 +979,6 @@ with tabs[3]:
                         
     #### Source
     - **Atlas Digital de Desastres no Brasil** - [www.atlasdigital.mdr.gov.br/](http://atlasdigital.mdr.gov.br/).
-    - **EM-DAT, CRED / UCLouvain, 2024, Brussels, Belgium**F – [www.emdat.be](https://www.emdat.be/).
+    - **EM-DAT, CRED / UCLouvain, 2024, Brussels, Belgium** – [www.emdat.be](https://www.emdat.be/).
     - **Sistema de Subvenção Econômica ao Prêmio do Seguro Rural** - SISSER - Portal de Dados Abertos do Ministério da Agricultura e Pecuária - [dados.agricultura.gov.br/dataset/sisser3](https://dados.agricultura.gov.br/dataset/sisser3).
     ''')
