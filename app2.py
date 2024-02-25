@@ -18,7 +18,7 @@ st.title(titulo_pagina)
 
 
 # FUNÇÕES
-@st.cache_resource
+@st.cache_data
 def carrega_geojson(caminho):
     with open(caminho, 'r') as f:
         geoj = json.load(f)
@@ -29,12 +29,12 @@ def filtra_geojson(geojson, iso, prop='codarea'):
     gdf = gpd.GeoDataFrame.from_features(geojson)
     return json.loads(gdf[gdf[prop] == iso].to_json())
 
-@st.cache_resource
+@st.cache_data
 def carrega_dados(caminho_arquivo):
     df = pd.read_csv(caminho_arquivo)
     return df
 
-@st.cache_resource
+@st.cache_data
 def carrega_parquet(caminho_arquivo):
     df = pd.read_parquet(caminho_arquivo)
     return df
