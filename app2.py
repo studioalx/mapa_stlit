@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 import geopandas as gpd
 import plotly.express as px
+from datetime import date
 
 # -------------------- CONFIGURAÇÕES ----------------------
 titulo_pagina = 'Mapa de Eventos Climáticos'
@@ -17,23 +18,23 @@ st.title(titulo_pagina)
 
 
 # FUNÇÕES
-@st.cache_data
+@st.cache_resource
 def carrega_geojson(caminho):
     with open(caminho, 'r') as f:
         geoj = json.load(f)
     return geoj
 
-@st.cache_data
+# @st.cache_data
 def filtra_geojson(geojson, iso, prop='codarea'):
     gdf = gpd.GeoDataFrame.from_features(geojson)
     return json.loads(gdf[gdf[prop] == iso].to_json())
 
-@st.cache_data
+@st.cache_resource
 def carrega_dados(caminho_arquivo):
     df = pd.read_csv(caminho_arquivo)
     return df
 
-@st.cache_data
+@st.cache_resource
 def carrega_parquet(caminho_arquivo):
     df = pd.read_parquet(caminho_arquivo)
     return df
@@ -95,7 +96,7 @@ def classifica_segurado(df, munis, munis_segurados, munis_sinistrados):
     # df.seg = df.seg.mask(df.code_muni.isin(resultado), 'Não Apresenta Sinistro')
     return df
 
-@st.cache_data
+# @st.cache_data
 def classifica_lossratio(df):
     # df = dados.copy()
     df['classe_sinistralidade'] = pd.cut(df.loss_ratio, [0.0, 20, 40, 60, 80, 100, 1000], labels=['Abaixo de 20%', 'De 20% a 40%', 'De 40% e 60%', 'De 60% e 80%', 'De 80% e 100%', 'Acima de 100%'])
@@ -288,10 +289,11 @@ with tabs[0]:
 
 
     # SELECTBOX
-    uf_selectbox = select1.selectbox('Selecione o estado', list(estados.keys()), index=23)
+    uf_selectbox = select1.selectbox('Selecione o estado', list(estados.keys()), index=17)
     uf_selecionado = estados[uf_selectbox]
     grupo_desastre_selecionado = select2.selectbox('Selecione o grupo de desastre', ['Todos os Grupos de Desastre'] + list(desastres.keys()), index=0)
     # grupo_desastre_selecionado = select2.selectbox('Selecione o grupo de desastre', list(desastres.keys()), index=0)
+    # ano_inicial, ano_final = col_dados.date_input('Selecione o Período a ser analisado', (date(1991, 1, 7), date(2022, 12, 30)), date(1991, 1, 7), date(2022, 12, 30), format="DD/MM/YYYY")
     ano_inicial, ano_final = col_dados.select_slider('Selecione o Intervalo de Anos', anos, value=(anos[0], anos[-1]))
 
 
@@ -528,7 +530,7 @@ with tabs[0]:
 
 
 with tabs[1]:
-    tipologias_psr = psr.descricao_tipologia.unique()[1:].tolist()
+    tipologias_psr = sorted(psr.descricao_tipologia.unique()[1:].tolist())
 
     # COLUNAS
     col_mapa_agro, col_metrics = st.columns([1, 1], gap='large')
@@ -537,13 +539,14 @@ with tabs[1]:
 
 
     # CONFIG
-    estado_psr = col_config1.selectbox('Estado', estados.keys(), index=23, key='uf_psr')
+    estado_psr = col_config1.selectbox('Estado', estados.keys(), index=17, key='uf_psr')
     uf_psr = estados[estado_psr]
-    ano_psr = col_config2.selectbox('Ano de Subscrição', anos_psr, index=15, key='ano_psr')
+    psrQ1 = psr.query("uf == @uf_psr")
+    ano_psr = col_config2.selectbox('Ano de Subscrição', sorted(psrQ1.ano.unique().tolist(), reverse=True), index=0, key='ano_psr')
+    psrQ1 = psrQ1.query("ano == @ano_psr")
 
-    psrQ1 = psr.query("uf == @uf_psr & ano == @ano_psr")
 
-    cultura_psr = col_config3.selectbox('Cultura Global', ['Todas as Culturas'] + psrQ1.cultura.unique().tolist(), index=0, key='cultura_psr')
+    cultura_psr = col_config3.selectbox('Cultura Global', ['Todas as Culturas'] + sorted(psrQ1.cultura.unique().tolist()), index=0, key='cultura_psr')
 
     if cultura_psr != 'Todas as Culturas':
         psrQ3 = psrQ1.query("cultura == @cultura_psr")
@@ -650,7 +653,7 @@ with tabs[1]:
     sin_merge.ibge = sin_merge.ibge.fillna('-')
     sin_quant = int(sin['size'].mean())
     munis_sinistrados = sin.query("size > @sin_quant").ibge
-    print(sin_quant)
+    # print(sin_quant)
     sin_segurado = classifica_segurado(sin_merge, merge_muni_psr.code_muni, psrQ1.ibge, munis_sinistrados)
     # sin_segurado = classifica_segurado(sin_merge, merge_muni_psr.code_muni, psrQ1.ibge, psrQ2.ibge)
 
