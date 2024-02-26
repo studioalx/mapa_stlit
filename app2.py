@@ -6,6 +6,8 @@ import pandas as pd
 import streamlit as st
 import geopandas as gpd
 import plotly.express as px
+import plotly.graph_objects as gov
+import plotly.subplots as sp
 from datetime import date
 
 # -------------------- CONFIGURAÇÕES ----------------------
@@ -153,8 +155,6 @@ pop_pib = carrega_parquet('pop_pib_muni.parquet')
 pop_pib_uf = carrega_parquet('pop_pib_latam.parquet')
 malha_america = carrega_geojson('malha_latam.json')
 malha_brasil = carrega_geojson('malha_brasileira.json')
-
-# psr = carrega_parquet('PSR.parquet')[['NM_RAZAO_SOCIAL', 'NR_AREA_TOTAL', 'NM_CULTURA_GLOBAL', 'PE_TAXA', 'NR_PRODUTIVIDADE_SEGURADA', 'uf', 'ibge', 'ano', 'descricao_tipologia', 'municipio', 'NR_APOLICE', 'VL_PREMIO_LIQUIDO', 'VL_SUBVENCAO_FEDERAL', 'VALOR_INDENIZAÇÃO']]
 psr = carrega_parquet('PSR_COMPLETO.parquet')
 
 
@@ -546,10 +546,13 @@ with tabs[1]:
     psrQ1 = psrQ1.query("ano == @ano_psr")
 
 
-    cultura_psr = col_config3.selectbox('Cultura Global', ['Todas as Culturas'] + sorted(psrQ1.cultura.unique().tolist()), index=0, key='cultura_psr')
-
-    if cultura_psr != 'Todas as Culturas':
-        psrQ3 = psrQ1.query("cultura == @cultura_psr")
+    cultura_psr = col_config3.multiselect('Cultura Global', psrQ1.cultura.value_counts().index.tolist(), default=None, placeholder='Selecionar culturas', key='cultura_psr')
+    # cultura_psr = col_config3.selectbox('Cultura Global', ['Todas as Culturas'] + sorted(psrQ1.cultura.unique().tolist()), index=0, key='cultura_psr')
+    
+    # if cultura_psr != 'Todas as Culturas':
+    if len(cultura_psr) > 0:
+        psrQ3 = psrQ1.query("cultura.isin(@cultura_psr)")
+        print(f'CULTURA: {cultura_psr}')
     else:
         psrQ3 = psrQ1
 
@@ -562,7 +565,7 @@ with tabs[1]:
     # metrica_psr_uf1, metrica_psr_uf2 = col_metrics.columns([1, 1])
     col_config1.metric('Total de Apólices', len(psrQ3.num_apolice))
     lr_metric = f'{lr.loss_ratio.multiply(100).astype(int).values[0]}%' if not psrQ3.empty else '0%'
-    col_config2.metric(f'Índice de Sinistralidade ({cultura_psr})', lr_metric)
+    col_config2.metric(f'Índice de Sinistralidade', lr_metric)
 
     coord_psr = col_config3.selectbox('Encontrar município (zoom)',['-'] + dados_merge.iloc[:-45].query("abbrev_state == @uf_psr").name_muni.unique().tolist(), index=0, key='coord_psr')
 
@@ -585,7 +588,7 @@ with tabs[1]:
 
     # MAPA SINISTRALIDADE
     sin_muni = psrQ3.groupby(['ibge'], as_index=False)[['valor_premio', 'valor_subvencao', 'valor_indenizacao']].sum().copy()
-    sin_muni['loss_ratio'] = (sin_muni.valor_indenizacao / (sin_muni.valor_premio + sin_muni.valor_subvencao)) * 100 + 1e-6
+    sin_muni['loss_ratio'] = (sin_muni.valor_indenizacao / (sin_muni.valor_premio + sin_muni.valor_subvencao)) * 100
 
     sin_muni_merge = merge_muni_psr.merge(sin_muni, how='left', left_on='code_muni', right_on='ibge')
     sin_muni_merge.loss_ratio = sin_muni_merge.loss_ratio.fillna(0)
@@ -598,7 +601,7 @@ with tabs[1]:
 
     fig_sinistralidade_muni.update_coloraxes(colorbar=dict(title='Índice de Sinistralidade (%)', tickvals=[0, 20, 40, 60, 80, 100], ticktext=['0', '20', '40', '60', '80', '100+'], orientation='h', yanchor='top', y=0.0))
 
-    col_mapa_agro.subheader(f'Índice de Sinistralidade por Município ({cultura_psr} - {ano_psr})')
+    col_mapa_agro.subheader(f'Índice de Sinistralidade por Município')
     col_mapa_agro.plotly_chart(fig_sinistralidade_muni, use_container_width=True)
     # col_mapa_agro.divider()
     col_mapa_agro.text(" ")
@@ -608,30 +611,68 @@ with tabs[1]:
 
 
 
-    # BUBBLE PLOT
-    psr_year = psr.query("uf == @uf_psr")
-    psr_year_grouped = psr_year.drop(psr_year.query("descricao_tipologia == '-'").index).groupby(['ano', 'descricao_tipologia'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
-    # print(psr_year_grouped.head())
+    fig_bar = sp.make_subplots(specs=[[{"secondary_y": True}]])
 
-
-
-    fig_psr_year = px.scatter(psr_year_grouped, x="ano", y='descricao_tipologia', size='ocorrencias', 
-        color='descricao_tipologia', size_max=50, color_discrete_map=mapa_de_cores,
-        labels={
-            "ano": "Ano de Subscrição", 
-            "descricao_tipologia": "Evento Climático"
-        }
+    bar_data = psrQ3.groupby(psrQ3.data_apolice.dt.month, as_index=False).num_apolice.nunique().rename(columns={'num_apolice': 'Apólices'})
+    # bar_data = bar_data.set_index(['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'])
+    fig_bar.add_trace(
+        px.bar(bar_data, x=bar_data.index, y='Apólices', labels={'index': 'Mês', 'Apólices': 'Apólices'}).data[0],
+        secondary_y=False,
     )
-    fig_psr_year.update_layout(showlegend=False, legend_orientation='h', margin={"r":0,"t":0,"l":0,"b":0})
-    fig_psr_year.update_xaxes(showgrid=True)
-    # col_metrics.caption('Sinistros por evento climático ao longo dos anos.')
-    col_metrics.plotly_chart(fig_psr_year)
-    col_metrics.text(" ")
-    col_metrics.text(" ")
+
+    line_data = psrQ3.groupby(psrQ3.data_apolice.dt.month, as_index=False)[['valor_premio', 'valor_subvencao', 'valor_indenizacao']].sum().copy()
+    line_data['loss_ratio'] = (line_data.valor_indenizacao / (line_data.valor_premio + line_data.valor_subvencao)) * 100
+    # line_data = line_data.set_index(['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'])
+    fig_bar.add_trace(
+        # go.Line(x=[2, 3, 4], y=[4, 5, 6], name="yaxis2 data"),
+        px.line(line_data, x=line_data.index, y='loss_ratio', labels={'index': 'Mês', 'loss_ratio': 'Índice de Sinistralidade (%)'}, color_discrete_sequence=['#ff0000'], markers=True).data[0],
+        secondary_y=True
+    )
+
+    fig_bar.update_layout(
+        title_text="Número de Apólices e Índice de Sinistralidade por Mês",
+        xaxis = dict(
+            tickmode = 'array',
+            tickvals = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+            ticktext = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+        )
+    )
+
+    # Set x-axis title
+    fig_bar.update_xaxes(title_text="Mês")
+
+    # Set y-axes titles
+    fig_bar.update_yaxes(title_text="Número de Apólices", secondary_y=False)
+    fig_bar.update_yaxes(title_text="Índice de Sinistralidade", secondary_y=True)
+
+    col_metrics.plotly_chart(fig_bar)
 
 
 
-    col_metrics.subheader(f'Sinistros e Reportes de Desastres ({uf_psr} - {ano_psr})')
+    # # BUBBLE PLOT
+    # psr_year = psr.query("uf == @uf_psr")
+    # psr_year_grouped = psr_year.drop(psr_year.query("descricao_tipologia == '-'").index).groupby(['ano', 'descricao_tipologia'], as_index=False).size().rename(columns={'size': 'ocorrencias'})
+    # # print(psr_year_grouped.head())
+
+
+
+    # fig_psr_year = px.scatter(psr_year_grouped, x="ano", y='descricao_tipologia', size='ocorrencias', 
+    #     color='descricao_tipologia', size_max=50, color_discrete_map=mapa_de_cores,
+    #     labels={
+    #         "ano": "Ano de Subscrição", 
+    #         "descricao_tipologia": "Evento Climático"
+    #     }
+    # )
+    # fig_psr_year.update_layout(showlegend=False, legend_orientation='h', margin={"r":0,"t":0,"l":0,"b":0})
+    # fig_psr_year.update_xaxes(showgrid=True)
+    # # col_metrics.caption('Sinistros por evento climático ao longo dos anos.')
+    # col_metrics.plotly_chart(fig_psr_year)
+    # col_metrics.text(" ")
+    # col_metrics.text(" ")
+
+
+
+    col_metrics.subheader(f'Sinistros e Reportes de Desastres em {ano_psr}')
     tipologia_selecionada_psr = col_metrics.selectbox('Evento Climático', ['Todos os Eventos'] + tipologias_psr, index=0, key='tipol_psr')
 
 
@@ -659,7 +700,7 @@ with tabs[1]:
 
     sin_fig = cria_mapa(sin_segurado, malha_psr, locais='code_muni', cor='seg', lista_cores=cores_segurado, dados_hover='sinistros', nome_hover='name_muni', lat=lat_psr, lon=lon_psr, zoom=zoom_uf_psr, titulo_legenda=f'Classificação da Área')
 
-    col_mapa_agro.subheader(f'Mapa de Áreas Seguradas ({uf_psr} - {ano_psr})')
+    col_mapa_agro.subheader(f'Mapa de Áreas Seguradas ({tipologia_selecionada_psr})')
     col_mapa_agro.plotly_chart(sin_fig, use_container_width=True)
 
 
@@ -768,26 +809,48 @@ with tabs[1]:
     # HEATMAP
     st.title(" ")
     st.title(" ")
-    hm_query_psr = psr
+
+    tabs_psr = st.tabs(['Sinistros por Evento Climático', 'Sinistros por Estado'])
+    hm_query_psr = psr.drop(psr.query("descricao_tipologia == '-'").index)
     if tipologia_selecionada_psr != 'Todos os Eventos':
         hm_query_psr = psr.query("descricao_tipologia == @tipologia_selecionada_psr")
-    pivot_hm_psr = hm_query_psr.pivot_table(index='ano', columns='uf', aggfunc='size', fill_value=0)
-    # pivot_hm_psr = pivot_hm_psr.reindex(columns=psr.uf.unique(), fill_value=0)
-    pivot_hm_psr = pivot_hm_psr.reindex(index=anos_psr, fill_value=0).transpose()
-    fig_hm_psr = px.imshow(
-        pivot_hm_psr,
-        labels=dict(x="Ano", y="Estado (UF)", color="Total de Sinistro"),
-        x=pivot_hm_psr.columns,
-        y=pivot_hm_psr.index,
-        color_continuous_scale='Greys',
-    )
-    fig_hm_psr.update_layout(
-        yaxis_nticks=len(pivot_hm_psr),
-        height=700
-    )
-    st.subheader(f'Sinistros de *{tipologia_selecionada_psr}* por estado de 2006 a 2021')
-    st.caption('Apenas os estados com pelo menos um sinistro serão exibidos')
-    st.plotly_chart(fig_hm_psr, use_container_width=True)
+
+    with tabs_psr[0]:
+        hm_query_psr_1 = psr.drop(psr.query("descricao_tipologia == '-'").index).query("uf == @uf_selecionado")
+        pivot_hm1_psr = hm_query_psr_1.pivot_table(index='ano', columns='descricao_tipologia', aggfunc='size', fill_value=0)
+        pivot_hm1_psr = pivot_hm1_psr.reindex(index=anos_psr, fill_value=0).transpose()
+        fig_hm1_psr = px.imshow(
+            pivot_hm1_psr,
+            labels=dict(x="Ano", y="Evento Climático", color="Sinistros"),
+            x=pivot_hm1_psr.columns,
+            y=pivot_hm1_psr.index,
+            color_continuous_scale='Greys',
+        )
+        fig_hm1_psr.update_layout(
+            yaxis_nticks=len(pivot_hm1_psr),
+        )
+        st.subheader(f'Número de Sinistros por Evento Climático de 2006 a 2021')
+        st.plotly_chart(fig_hm1_psr, use_container_width=True)
+
+
+    with tabs_psr[1]:
+        pivot_hm_psr = hm_query_psr.pivot_table(index='ano', columns='uf', aggfunc='size', fill_value=0)
+        # pivot_hm_psr = pivot_hm_psr.reindex(columns=psr.uf.unique(), fill_value=0)
+        pivot_hm_psr = pivot_hm_psr.reindex(index=anos_psr, fill_value=0).transpose()
+        fig_hm_psr = px.imshow(
+            pivot_hm_psr,
+            labels=dict(x="Ano", y="Estado (UF)", color="Total de Sinistro"),
+            x=pivot_hm_psr.columns,
+            y=pivot_hm_psr.index,
+            color_continuous_scale='Greys',
+        )
+        fig_hm_psr.update_layout(
+            yaxis_nticks=len(pivot_hm_psr),
+            height=700
+        )
+        st.subheader(f'Sinistros de *{tipologia_selecionada_psr}* por estado de 2006 a 2021')
+        st.caption('Apenas os estados com pelo menos um sinistro serão exibidos')
+        st.plotly_chart(fig_hm_psr, use_container_width=True)
 
 
 
