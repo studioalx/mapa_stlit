@@ -14,7 +14,8 @@ from datetime import date
 titulo_pagina = 'Painel IRC :bar_chart:'
 # titulo_pagina = 'Mapa de Eventos Climáticos'
 layout = 'wide'
-st.set_page_config(page_title=titulo_pagina, layout=layout)
+# st.set_page_config(layout=layout)
+st.set_page_config(page_title='Painel IRB', layout=layout)
 st.title(titulo_pagina)
 # ---------------------------------------------------------
 
@@ -569,7 +570,7 @@ with tabs[1]:
     psrQ1 = psr.query("uf == @uf_psr")
     dt_inicial_psr, dt_final_psr = col_config2.date_input('Data das Apólices', (date(2020, 7, 1), date(2021, 7, 1)), date(2006, 1, 7), date(2021, 12, 30), format="DD/MM/YYYY")
     # ano_psr = col_config2.selectbox('Ano de Subscrição', sorted(psrQ1.ano.unique().tolist(), reverse=True), index=0, key='ano_psr')
-    psrQ1 = psrQ1.query("data_apolice >= @dt_inicial_psr & data_apolice <= @dt_final_psr")
+    psrQ1 = psrQ1.query("data_apolice >= @dt_inicial_psr & data_apolice < @dt_final_psr")
     # psrQ1 = psrQ1.query("ano == @ano_psr")
 
     cultura_psr = col_config1.multiselect('Cultura Global', psrQ1.cultura.value_counts().index.tolist(), default=None, placeholder='Selecionar culturas', key='cultura_psr')
@@ -692,7 +693,7 @@ with tabs[1]:
     fig_bar.update_yaxes(title_text="Índice de Sinistralidade (%)", secondary_y=True, minor=dict(dtick=1))
 
     col_metrics1.plotly_chart(fig_bar)
-    col_metrics1.caption("Os meses que não aparecem no gráfico não possuem apólices subscritas ou sinistros reportados.")
+    col_metrics1.caption("Os meses que não aparecem no gráfico acima não possuem apólices subscritas ou sinistros reportados.")
 
 
 
@@ -768,7 +769,7 @@ with tabs[1]:
 
 
 
-    atlas_psr = dados_atlas.query("uf == @uf_psr & data >= @dt_inicial_psr & data <= @dt_final_psr")
+    atlas_psr = dados_atlas.query("uf == @uf_psr & data >= @dt_inicial_psr & data < @dt_final_psr")
     # atlas_psr = dados_atlas.query("uf == @uf_psr & ano == @ano_psr")
     if tipologia_selecionada_psr != 'Todos os Eventos':
         atlas_psr = atlas_psr.query("descricao_tipologia == @tipologia_selecionada_psr")
