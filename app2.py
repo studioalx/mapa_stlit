@@ -592,6 +592,7 @@ with tabs[1]:
 
     # metrica_psr_uf1, metrica_psr_uf2 = col_metrics.columns([1, 1])
     col_config3.metric('Total de Apólices', len(psrQ3.num_apolice))
+    print(psrQ3.num_apolice.nunique())
     lr_metric = f'{lr.loss_ratio.multiply(100).astype(int).values[0]}%' if not psrQ3.empty else '0%'
     col_config3.metric(f'Índice de Sinistralidade', lr_metric)
 
@@ -655,14 +656,24 @@ with tabs[1]:
     #     secondary_y=False,
     # )
 
-    line_data = psrQ3.groupby(psrQ3.data_apolice.dt.month, as_index=False)[['valor_premio', 'valor_subvencao', 'valor_indenizacao']].sum().copy()
+    line_data = psrQ3.groupby(['ano', psrQ1.data_apolice.dt.month])[['valor_premio', 'valor_subvencao', 'valor_indenizacao']].sum().copy()
+    line_data = line_data.reset_index(level=['data_apolice', 'ano'])
+    line_data.data_apolice = line_data.data_apolice.astype(str).map(meses)
+    line_data.ano = line_data.ano.astype(str)
+    line_data['Mês'] = line_data[['data_apolice', 'ano']].agg('-'.join, axis=1)
+    line_data = line_data.drop(['ano', 'data_apolice'], axis=1)
+    # line_data = psrQ3.groupby(psrQ3.data_apolice.dt.month, as_index=False)[['valor_premio', 'valor_subvencao', 'valor_indenizacao']].sum().copy()
     line_data['loss_ratio'] = (line_data.valor_indenizacao / (line_data.valor_premio + line_data.valor_subvencao)) * 100
-    # line_data = line_data.set_index(['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'])
     fig_bar.add_trace(
         # go.Line(x=[2, 3, 4], y=[4, 5, 6], name="yaxis2 data"),
-        px.line(line_data, x=line_data.index, y='loss_ratio', labels={'index': 'Mês', 'loss_ratio': 'Índice de Sinistralidade (%)'}, color_discrete_sequence=['#ff0000'], markers=True).data[0],
+        px.line(line_data, x='Mês', y='loss_ratio', labels={'loss_ratio': 'Índice de Sinistralidade (%)'}, color_discrete_sequence=['#ff0000'], markers=True).data[0],
         secondary_y=True
     )
+    # fig_bar.add_trace(
+    #     # go.Line(x=[2, 3, 4], y=[4, 5, 6], name="yaxis2 data"),
+    #     px.line(line_data, x=line_data.index, y='loss_ratio', labels={'index': 'Mês', 'loss_ratio': 'Índice de Sinistralidade (%)'}, color_discrete_sequence=['#ff0000'], markers=True).data[0],
+    #     secondary_y=True
+    # )
 
     fig_bar.update_layout(
         title_text="Número de Apólices e Índice de Sinistralidade por Mês",
@@ -681,6 +692,7 @@ with tabs[1]:
     fig_bar.update_yaxes(title_text="Índice de Sinistralidade (%)", secondary_y=True, minor=dict(dtick=1))
 
     col_metrics1.plotly_chart(fig_bar)
+    col_metrics1.caption("Os meses que não aparecem no gráfico não possuem apólices subscritas ou sinistros reportados.")
 
 
 
@@ -709,7 +721,7 @@ with tabs[1]:
     secao2_agro = st.container()
     col_mapa_agro2, col_metrics2 = secao2_agro.columns([1, 1], gap='large')
 
-    col_metrics2.header(f'Sinistros e Reportes de Desastres em {dt_inicial_psr.year} - {dt_final_psr.year}')
+    col_metrics2.header(f'Sinistros e Reportes de Desastres em {meses[str(dt_inicial_psr.month)]} {dt_inicial_psr.year} - {meses[str(dt_final_psr.month)]} {dt_final_psr.year}')
     # col_metrics2.header(f'Sinistros e Reportes de Desastres em {ano_psr}')
     tipologia_selecionada_psr = col_metrics2.selectbox('Evento Climático', ['Todos os Eventos'] + tipologias_psr, index=0, key='tipol_psr')
 
@@ -769,7 +781,7 @@ with tabs[1]:
 
 
     # PIE CHART
-    col_metrics2.write(f'**Representatividade dos Eventos Climáticos no Total Indenizado ({uf_psr} - {dt_inicial_psr.year} a {dt_final_psr.year})**')
+    col_metrics2.write(f'**Representatividade dos Eventos Climáticos no Total Indenizado ({uf_psr} - {meses[str(dt_inicial_psr.month)]} {dt_inicial_psr.year} a {meses[str(dt_final_psr.month)]} {dt_final_psr.year})**')
     # col_metrics2.write(f'**Representatividade dos Eventos Climáticos no Total Indenizado ({uf_psr} - {ano_psr})**')
     psrPie = psrQ3.drop(psrQ3.query("descricao_tipologia == '-'").index).groupby('descricao_tipologia')['valor_indenizacao'].sum()
     figpie = px.pie(
@@ -817,7 +829,7 @@ with tabs[1]:
         tit_tabela, tabela_ordem = st.columns([4, 1])
         ordem_tabela1 = tabela_ordem.selectbox('Ordenar por', ['Média Taxa de Prêmio', 'Total Sinistros', 'Total Apólices', 'Média de Sinistros por Apólice', 'Média Prod. Segurada'], index=0, key='ordem_psr')
         ordem_tabela2 = tabela_cols[ordem_tabela1]
-        tit_tabela.header(f'Dados dos Municípios com Sinistros de {tipologia_selecionada_psr} ({dt_inicial_psr.year} - {dt_final_psr.year})')
+        tit_tabela.header(f'Dados dos Municípios com Sinistros de {tipologia_selecionada_psr} ({meses[str(dt_inicial_psr.month)]} {dt_inicial_psr.year} - {meses[str(dt_final_psr.month)]} {dt_final_psr.year})')
         # tit_tabela.header(f'Dados dos Municípios com Sinistros de {tipologia_selecionada_psr} ({ano_psr})')
         st.dataframe(
             psrG_muni[col_order].sort_values(ordem_tabela2, ascending=False),
@@ -844,7 +856,7 @@ with tabs[1]:
             height=400,
             use_container_width=True
         )
-        st.download_button('Baixar tabela', psrG_muni.to_csv(sep=',', index=False), file_name=f'psr_{uf_psr}_{dt_inicial_psr.year}-{dt_final_psr.year}.csv', use_container_width=True)
+        st.download_button('Baixar tabela', psrG_muni.to_csv(sep=',', index=False), file_name=f'psr_{uf_psr}_{meses[str(dt_inicial_psr.month)]}{dt_inicial_psr.year}-{meses[str(dt_final_psr.month)]}{dt_final_psr.year}.csv', use_container_width=True)
         # st.download_button('Baixar tabela', psrG_muni.to_csv(sep=',', index=False), file_name=f'psr_{uf_psr}_{ano_psr}.csv', use_container_width=True)
 
 
