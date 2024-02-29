@@ -581,7 +581,7 @@ with tabs[1]:
     # if cultura_psr != 'Todas as Culturas':
     if len(cultura_psr) > 0:
         psrQ3 = psrQ1.query("cultura.isin(@cultura_psr)")
-        print(f'CULTURA: {cultura_psr}')
+        # print(f'CULTURA: {cultura_psr}')
     else:
         psrQ3 = psrQ1
 
@@ -593,7 +593,7 @@ with tabs[1]:
 
     # metrica_psr_uf1, metrica_psr_uf2 = col_metrics.columns([1, 1])
     col_config3.metric('Total de Apólices', len(psrQ3.num_apolice))
-    print(psrQ3.num_apolice.nunique())
+    # print(psrQ3.num_apolice.nunique())
     lr_metric = f'{lr.loss_ratio.multiply(100).astype(int).values[0]}%' if not psrQ3.empty else '0%'
     col_config3.metric(f'Índice de Sinistralidade', lr_metric)
 
@@ -646,7 +646,7 @@ with tabs[1]:
     bar_data = bar_data.drop(['ano', 'data_apolice'], axis=1)
 
     # bar_data = psrQ3.groupby(psrQ3.data_apolice.dt.month, as_index=False).num_apolice.nunique().rename(columns={'num_apolice': 'Apólices'})
-    print(bar_data.head())
+    # print(bar_data.head())
     # bar_data = bar_data.set_index(['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'])
     fig_bar.add_trace(
         px.bar(bar_data, x='Mês', y='num_apolice', labels={'num_apolice': 'Apólices'}).data[0],
