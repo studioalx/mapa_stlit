@@ -15,7 +15,7 @@ titulo_pagina = 'Painel IRC :bar_chart:'
 # titulo_pagina = 'Mapa de Eventos Climáticos'
 layout = 'wide'
 # st.set_page_config(layout=layout)
-st.set_page_config(page_title='Painel IRB', layout=layout)
+st.set_page_config(page_title='Painel IRC', layout=layout)
 st.title(titulo_pagina)
 # ---------------------------------------------------------
 
