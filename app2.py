@@ -677,7 +677,7 @@ with tabs[1]:
     # )
 
     fig_bar.update_layout(
-        title_text="Número de Apólices e Índice de Sinistralidade por Mês",
+        title_text="Número de Apólices´Contratas e Índice de Sinistralidade por Mês",
         # xaxis = dict(
         #     tickmode = 'array',
         #     tickvals = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
