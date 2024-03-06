@@ -148,6 +148,7 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, tons_midpo
 
 
 # VARIAVEIS
+dados_susep = carrega_parquet('susep_agro.parquet')
 dados_atlas = carrega_parquet('desastres_latam2.parquet')
 dados_merge = carrega_parquet('area2.parquet')
 coord_uf = carrega_parquet('coord_uf.parquet')
@@ -296,7 +297,7 @@ psr.seguradora = psr.seguradora.map(seg)
 psr.pe_taxa = psr.pe_taxa * 100
 
 # COLUNAS
-tabs = st.tabs(['UF do Brasil', 'Agro', 'América Latina', 'Créditos'])
+tabs = st.tabs(['UF do Brasil', 'Agro', 'América Latina', 'Climatologia', 'Créditos'])
 
 with tabs[0]:
     secao1_uf = st.container()
@@ -718,6 +719,61 @@ with tabs[1]:
     # col_metrics.text(" ")
     # col_metrics.text(" ")
 
+    susepQ = dados_susep.query("uf == @uf_psr & data >= @dt_inicial_psr & data < @dt_final_psr")
+    print(susepQ)
+
+    secao_teste = st.container()
+    col_teste1, col_teste2 = secao_teste.columns([1, 1])
+
+    col_teste1.header('Gráficos SUSEP')
+    col_teste2.header('Financeiro SUSEP')
+
+    form_susep = col_teste2.form('form_susep', border=False, clear_on_submit=False)
+
+
+    form_susep.caption('Se nenhuma seguradora específica for selecionada, todas serão consideradas.')
+    susep_seg = form_susep.multiselect('Seguradoras', susepQ.seguradora.value_counts().index.tolist(), default=None, placeholder='Selecionar seguradoras', key='seguradora_psr')
+    enviar_form_susep = form_susep.form_submit_button('Selecionar Seguradoras')
+
+    from humanize import intword
+
+    susep_met_1, susep_met_2 = col_teste2.columns([1, 1])
+    susep_met_1.metric('Prêmios Diretos', f'R$ {intword(susepQ.premio_dir.sum())}')
+    susep_met_2.metric('Sinistro Diretos', f'R$ {intword(susepQ.sin_dir.sum())}')
+    susep_met_1.metric('Prêmios Retidos', f'R$ {intword(susepQ.premio_ret.sum())}')
+    susep_met_2.metric('Prêmios Retidos (Líquido)', f'R$ {intword(susepQ.prem_ret_liq.sum())}')
+    susep_met_1.metric('Salvados', f'R$ {intword(susepQ.salvados.sum())}')
+    susep_met_2.metric('Recuperações', f'R$ {intword(susepQ.recuperacao.sum())}')
+
+    teste_tab1, teste_tab2 = col_teste1.tabs(['Valores Mensais', 'Valores por Ramo'])
+    teste_tab1.write('Valores Mensais')
+
+    susep_cols = {
+        'premio_dir': 'Prêmios Diretos',
+        'premio_ret': 'Prêmios Retidos',
+        'prem_ret_liq': 'Prêmios Retidos (Líquido)',
+        'sin_dir': 'Sinistro Diretos',
+        'salvados': 'Salvados',
+        'recuperacao': 'Recuperações'
+    }
+    inv_susep_cols = {v: k for k, v in susep_cols.items()}
+    met_selecionada = teste_tab2.selectbox('Métrica', list(susep_cols.values()))
+
+    teste_tab2.write(f'**Representatividade dos Tipos de Seguro no valor dos {met_selecionada} ({meses[str(dt_inicial_psr.month)]} {dt_inicial_psr.year} a {meses[str(dt_final_psr.month)]} {dt_final_psr.year})**')
+
+    susepPie = susepQ.groupby(['ramo'])[inv_susep_cols[met_selecionada]].sum()
+    susepPie = px.pie(
+        susepPie,
+        values=inv_susep_cols[met_selecionada],
+        names=susepPie.index
+    )
+    susepPie.update_layout(
+        legend=dict(font=dict(size=16)),
+        legend_title=dict(font=dict(size=14), text='Tipo de Seguro')
+    )
+    teste_tab2.plotly_chart(susepPie, use_container_width=True)
+    
+
 
     secao2_agro = st.container()
     col_mapa_agro2, col_metrics2 = secao2_agro.columns([1, 1], gap='large')
@@ -1106,8 +1162,13 @@ with tabs[2]:
     #     st.plotly_chart(fig_hm2_br, use_container_width=True)
 
 
-
 with tabs[3]:
+    secao1_clima = st.container()
+    secao1_clima.header('Em desenvolvimento...')
+    secao1_clima.image("sant'ana.jpeg", use_column_width=True)
+
+
+with tabs[4]:
     col_creditos1, col_creditos2 = st.columns([1, 1], gap='large')
 
     col_creditos1.subheader('Founded by [IRB(Re)](https://www.irbre.com/)')
