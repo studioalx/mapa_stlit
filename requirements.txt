@@ -3,3 +3,4 @@ geopandas==0.14.2
 pandas
 numpy
 plotly==5.18.0
+humanize
