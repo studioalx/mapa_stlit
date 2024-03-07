@@ -720,7 +720,8 @@ with tabs[1]:
     # col_metrics.text(" ")
 
     susepQ = dados_susep.query("uf == @uf_psr & data >= @dt_inicial_psr & data < @dt_final_psr")
-    print(susepQ)
+    top_seguradoras = susepQ.groupby(['seguradora'], as_index=False)['premio_dir'].sum().sort_values('premio_dir', ascending=False).seguradora.tolist()
+    print(top_seguradoras[:5])
 
     secao_teste = st.container()
     col_teste1, col_teste2 = secao_teste.columns([1, 1])
@@ -729,27 +730,32 @@ with tabs[1]:
     col_teste2.header('Métricas Financeiras (SUSEP)')
 
     form_susep = col_teste2.form('form_susep', border=False, clear_on_submit=False)
+    form_susep.caption('As seguradoras estão listadas abaixo por ordem decrescente de prêmios diretos. Se nenhuma seguradora for selecionada, todas serão consideradas.')
 
-
-    form_susep.caption('Se nenhuma seguradora específica for selecionada, todas serão consideradas.')
-    susep_seg = form_susep.multiselect('Seguradoras', susepQ.seguradora.value_counts().index.tolist(), default=None, placeholder='Selecionar seguradoras', key='seguradora_psr')
+    susep_seg = form_susep.multiselect('Seguradoras', top_seguradoras, default=None, placeholder='Selecionar seguradoras', key='seguradora_psr')
     enviar_form_susep = form_susep.form_submit_button('Selecionar Seguradoras')
+
+    if len(susep_seg) > 0:
+        susepQ2 = susepQ.query("seguradora.isin(@susep_seg)")
+        # print(f'CULTURA: {cultura_psr}')
+    else:
+        susepQ2 = susepQ
 
     import humanize
     from humanize import intword
     _t = humanize.i18n.activate('pt_BR')
 
     susep_met_1, susep_met_2 = col_teste2.columns([1, 1])
-    susep_met_1.metric('Prêmios Diretos', f'R$ {intword(susepQ.premio_dir.sum())}')
-    susep_met_2.metric('Sinistro Diretos', f'R$ {intword(susepQ.sin_dir.sum())}')
-    susep_met_1.metric('Prêmios Retidos', f'R$ {intword(susepQ.premio_ret.sum())}')
-    susep_met_2.metric('Prêmios Retidos (Líquido)', f'R$ {intword(susepQ.prem_ret_liq.sum())}')
-    susep_met_1.metric('Salvados de Sinistros', f'R$ {intword(susepQ.salvados.sum())}')
-    susep_met_2.metric('Recuperações', f'R$ {intword(susepQ.recuperacao.sum())}')
+    susep_met_1.metric('Prêmios Diretos', f'R$ {intword(susepQ2.premio_dir.sum())}')
+    susep_met_2.metric('Sinistro Diretos', f'R$ {intword(susepQ2.sin_dir.sum())}')
+    susep_met_1.metric('Prêmios Retidos', f'R$ {intword(susepQ2.premio_ret.sum())}')
+    susep_met_2.metric('Prêmios Retidos (Líquido)', f'R$ {intword(susepQ2.prem_ret_liq.sum())}')
+    susep_met_1.metric('Salvados de Sinistros', f'R$ {intword(susepQ2.salvados.sum())}')
+    susep_met_2.metric('Recuperações', f'R$ {intword(susepQ2.recuperacao.sum())}')
 
     teste_tab1, teste_tab2 = col_teste1.tabs(['Prêmios e Sinsitros', 'Ramos do Seguro Rural'])
 
-    bar_susep = susepQ.groupby([susepQ.data.dt.year, susepQ.data.dt.month], as_index=True)[['premio_dir', 'sin_dir']].sum()
+    bar_susep = susepQ2.groupby([susepQ2.data.dt.year, susepQ2.data.dt.month], as_index=True)[['premio_dir', 'sin_dir']].sum()
     bar_susep = bar_susep.reset_index(level=0).rename(columns={'data': 'Ano'})
     bar_susep = bar_susep.reset_index(level=0).rename(columns={'data': 'Mês'})
     bar_susep.Mês = bar_susep.Mês.astype(str).map(meses)
@@ -767,7 +773,7 @@ with tabs[1]:
         'premio_dir': 'Prêmios Diretos',
         'premio_ret': 'Prêmios Retidos',
         'prem_ret_liq': 'Prêmios Retidos (Líquido)',
-        'sin_dir': 'Sinistro Diretos',
+        'sin_dir': 'Sinistros Diretos',
         'salvados': 'Salvados',
         'recuperacao': 'Recuperações'
     }
@@ -776,7 +782,7 @@ with tabs[1]:
 
     teste_tab2.write(f'**Representatividade dos Tipos de Seguro no valor dos {met_selecionada} ({meses[str(dt_inicial_psr.month)]} {dt_inicial_psr.year} a {meses[str(dt_final_psr.month)]} {dt_final_psr.year})**')
 
-    susepPie = susepQ.groupby(['ramo'])[inv_susep_cols[met_selecionada]].sum()
+    susepPie = susepQ2.groupby(['ramo'])[inv_susep_cols[met_selecionada]].sum()
     susepPie = px.pie(
         susepPie,
         values=inv_susep_cols[met_selecionada],
