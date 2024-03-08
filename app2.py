@@ -382,7 +382,8 @@ with tabs[0]:
     tipol_merge = merge_muni_2.merge(tipologias_mais_comuns_por_muni, how='left', left_on='code_muni', right_on='ibge').drop('ibge', axis=1)
     tipol_merge.loc[np.isnan(tipol_merge["ocorrencias"]), 'ocorrencias'] = 0
     tipol_merge.desastre_mais_comum = tipol_merge.desastre_mais_comum.fillna('Sem Dados')
-    col_mapa1.header(f'Desastre mais comum por Município ({ano_inicial} - {ano_final})')
+    col_mapa1.header(f'Desastre mais comum por Município')
+    # col_mapa1.header(f'Desastre mais comum por Município ({ano_inicial} - {ano_final})')
     col_mapa1.plotly_chart(cria_mapa(tipol_merge, malha_mun_estados, locais='code_muni', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_muni', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=zoom_uf, lat=lat, lon=lon, titulo_legenda='Desastre mais comum'), use_container_width=True)
 
 
@@ -414,7 +415,7 @@ with tabs[0]:
     # col_mapa.divider()
     # col_mapa.title(" ")
     # col_mapa.title(" ")
-    col_mapa2.header(f'Risco de {tipologia_selecionada} em {uf_selecionado} ({ano_inicial} - {ano_final})')
+    col_mapa2.header(f'Risco de {tipologia_selecionada} ({ano_inicial} - {ano_final})')
     col_mapa2.plotly_chart(fig_mapa, use_container_width=True)
 
 
@@ -806,12 +807,11 @@ with tabs[1]:
 
 
     # QUERIES
+    psrQ2 = psrQ1.query("descricao_tipologia != '-'")
     if tipologia_selecionada_psr != 'Todos os Eventos':
         psrQ2 = psrQ1.query("descricao_tipologia == @tipologia_selecionada_psr")
-    else:
-        psrQ2 = psrQ1.query("descricao_tipologia != '-'")
-    # psrQ2 = psrQ1.query("descricao_tipologia == @tipologia_selecionada_psr")
-
+    # else:
+    #     psrQ2 = psrQ1.query("descricao_tipologia != '-'")
 
 
 
@@ -880,7 +880,9 @@ with tabs[1]:
     psrQ2_2 = psrQ2
     if len(psrQ2_2) > 0:
         if tipologia_selecionada_psr != 'Todos os Eventos':
-            psrQ2_2 = psrQ2.query("cultura == @cultura_psr")
+            psrQ2_2 = psrQ2.query("descricao_tipologia == @tipologia_selecionada_psr")
+
+        print(f'psrQ2_2:\n{psrQ2_2.head()}')
         psrG_muni = psrQ2_2.groupby('municipio').agg({
             'descricao_tipologia': 'count',
             # 'NM_CULTURA_GLOBAL': lambda x: x.mode().iloc[0],
@@ -888,6 +890,8 @@ with tabs[1]:
             'prod_segurada': 'mean',
             'seguradora': lambda x: x.mode().iloc[0],
         }).reset_index()
+        print(f'psrG_muni:\n{psrG_muni.head()}')
+
         psrApol_muni = psrQ2_2.groupby(['municipio'], as_index=False).size().merge(psrQ1.groupby(['municipio'], as_index=False)['num_apolice'].nunique(), how='left', on='municipio')
         psrG_muni['apolices'] = psrApol_muni['num_apolice']
         psrG_muni['sin/apol'] = (psrApol_muni['size'] / psrApol_muni['num_apolice'])
@@ -1045,7 +1049,8 @@ with tabs[2]:
     tipol_merge_br = tipol_br.merge(tipologias_mais_comuns_por_estado, how='left', left_on='name_state', right_on='pais').drop('pais', axis=1)
     tipol_merge_br.loc[np.isnan(tipol_merge_br['ocorrencias']), 'ocorrencias'] = 0
     tipol_merge_br.desastre_mais_comum = tipol_merge_br.desastre_mais_comum.fillna('Sem Dados')
-    col_mapa_br1.header(f'Desastres mais comuns por País ({ano_inicial_br} - {ano_final_br})')
+    col_mapa_br1.header(f'Desastre mais comum por País')
+    # col_mapa_br1.header(f'Desastres mais comuns por País ({ano_inicial_br} - {ano_final_br})')
     col_mapa_br1.plotly_chart(cria_mapa(tipol_merge_br, malha_america, locais='code_state', cor='desastre_mais_comum', lista_cores=mapa_de_cores, nome_hover='name_state', dados_hover=['desastre_mais_comum', 'ocorrencias'], zoom=1, titulo_legenda='Desastre mais comum'), use_container_width=True)
 
 
@@ -1186,7 +1191,7 @@ with tabs[2]:
 with tabs[3]:
     secao1_clima = st.container()
     secao1_clima.header('Em desenvolvimento...')
-    secao1_clima.image("sant'ana.jpeg", use_column_width=True)
+    # secao1_clima.image("sant'ana.jpeg", use_column_width=True)
 
 
 with tabs[4]:
