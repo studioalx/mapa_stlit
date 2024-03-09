@@ -22,6 +22,16 @@ st.title(titulo_pagina)
 
 
 # FUNÇÕES
+def number_to_human(num):
+    if num >= 1000000000:
+        return f'R$ {num/1000000000:.2f} Bi'
+    elif num > 1000000:
+        return f'R$ {num/1000000:.2f} Mi'
+    elif num > 1000:
+        return f'R$ {num/1000:.2f} Mil'
+    else:
+        return f'R$ {num:.2f}'
+
 @st.cache_data
 def carrega_geojson(caminho):
     with open(caminho, 'r') as f:
@@ -679,7 +689,7 @@ with tabs[1]:
     # )
 
     fig_bar.update_layout(
-        title_text="Número de Apólices´Contratas e Índice de Sinistralidade por Mês",
+        title_text="Número de Apólices Contratas e Índice de Sinistralidade por Mês",
         # xaxis = dict(
         #     tickmode = 'array',
         #     tickvals = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
@@ -723,77 +733,6 @@ with tabs[1]:
     susepQ = dados_susep.query("uf == @uf_psr & data >= @dt_inicial_psr & data < @dt_final_psr")
     top_seguradoras = susepQ.groupby(['seguradora'], as_index=False)['premio_dir'].sum().sort_values('premio_dir', ascending=False).seguradora.tolist()
     print(top_seguradoras[:5])
-
-    secao_teste = st.container()
-    col_teste1, col_teste2 = secao_teste.columns([1, 1])
-
-    col_teste1.header('Análise Gráfica dos Valores Financeiros (SUSEP)')
-    col_teste2.header('Métricas Financeiras (SUSEP)')
-
-    form_susep = col_teste2.form('form_susep', border=False, clear_on_submit=False)
-    form_susep.caption('As seguradoras estão listadas abaixo por ordem decrescente de prêmios diretos. Se nenhuma seguradora for selecionada, todas serão consideradas.')
-
-    susep_seg = form_susep.multiselect('Seguradoras', top_seguradoras, default=None, placeholder='Selecionar seguradoras', key='seguradora_psr')
-    enviar_form_susep = form_susep.form_submit_button('Selecionar Seguradoras')
-
-    if len(susep_seg) > 0:
-        susepQ2 = susepQ.query("seguradora.isin(@susep_seg)")
-        # print(f'CULTURA: {cultura_psr}')
-    else:
-        susepQ2 = susepQ
-
-    import humanize
-    from humanize import intword
-    _t = humanize.i18n.activate('pt_BR')
-
-    susep_met_1, susep_met_2 = col_teste2.columns([1, 1])
-    susep_met_1.metric('Prêmios Diretos', f'R$ {intword(susepQ2.premio_dir.sum())}')
-    susep_met_2.metric('Sinistro Diretos', f'R$ {intword(susepQ2.sin_dir.sum())}')
-    susep_met_1.metric('Prêmios Retidos', f'R$ {intword(susepQ2.premio_ret.sum())}')
-    susep_met_2.metric('Prêmios Retidos (Líquido)', f'R$ {intword(susepQ2.prem_ret_liq.sum())}')
-    susep_met_1.metric('Salvados de Sinistros', f'R$ {intword(susepQ2.salvados.sum())}')
-    susep_met_2.metric('Recuperações', f'R$ {intword(susepQ2.recuperacao.sum())}')
-
-    teste_tab1, teste_tab2 = col_teste1.tabs(['Prêmios e Sinsitros', 'Ramos do Seguro Rural'])
-
-    bar_susep = susepQ2.groupby([susepQ2.data.dt.year, susepQ2.data.dt.month], as_index=True)[['premio_dir', 'sin_dir']].sum()
-    bar_susep = bar_susep.reset_index(level=0).rename(columns={'data': 'Ano'})
-    bar_susep = bar_susep.reset_index(level=0).rename(columns={'data': 'Mês'})
-    bar_susep.Mês = bar_susep.Mês.astype(str).map(meses)
-    bar_susep.Ano = bar_susep.Ano.astype(str)
-    bar_susep['Período'] = bar_susep[['Mês', 'Ano']].agg('-'.join, axis=1)
-    bar_susep = bar_susep.drop(['Mês', 'Ano'], axis=1)
-    bar_susep = bar_susep.rename(columns={'premio_dir': 'Prêmios Diretos', 'sin_dir': 'Sinistros Diretos'})
-    susepBar = px.bar(bar_susep, x='Período', y=['Prêmios Diretos', 'Sinistros Diretos'], barmode='group', labels={'value': 'Valor', 'variable': 'Tipo', 'Período': 'Período'})
-
-    teste_tab1.write(f'**Prêmios e Sinistros diretos ({meses[str(dt_inicial_psr.month)]} {dt_inicial_psr.year} a {meses[str(dt_final_psr.month)]} {dt_final_psr.year})**')
-    teste_tab1.plotly_chart(susepBar, use_container_width=True)
-    
-
-    susep_cols = {
-        'premio_dir': 'Prêmios Diretos',
-        'premio_ret': 'Prêmios Retidos',
-        'prem_ret_liq': 'Prêmios Retidos (Líquido)',
-        'sin_dir': 'Sinistros Diretos',
-        'salvados': 'Salvados',
-        'recuperacao': 'Recuperações'
-    }
-    inv_susep_cols = {v: k for k, v in susep_cols.items()}
-    met_selecionada = teste_tab2.selectbox('Métrica', list(susep_cols.values()))
-
-    teste_tab2.write(f'**Representatividade dos Tipos de Seguro no valor dos {met_selecionada} ({meses[str(dt_inicial_psr.month)]} {dt_inicial_psr.year} a {meses[str(dt_final_psr.month)]} {dt_final_psr.year})**')
-
-    susepPie = susepQ2.groupby(['ramo'])[inv_susep_cols[met_selecionada]].sum()
-    susepPie = px.pie(
-        susepPie,
-        values=inv_susep_cols[met_selecionada],
-        names=susepPie.index
-    )
-    susepPie.update_layout(
-        legend=dict(font=dict(size=16)),
-        legend_title=dict(font=dict(size=14), text='Tipo de Seguro')
-    )
-    teste_tab2.plotly_chart(susepPie, use_container_width=True)
     
 
 
@@ -874,13 +813,86 @@ with tabs[1]:
     )
     col_metrics2.plotly_chart(figpie, use_container_width=True)
 
+
+
+    secao_susep = st.container()
+    col_susep1, col_susep2 = secao_susep.columns([1, 1])
+
+    col_susep1.header('Análise Gráfica dos Valores Financeiros (SUSEP)')
+    col_susep2.header('Métricas Financeiras (SUSEP)')
+
+    form_susep = col_susep2.form('form_susep', border=False, clear_on_submit=False)
+    form_susep.caption('As seguradoras estão listadas abaixo por ordem decrescente de prêmios diretos. Se nenhuma seguradora for selecionada, todas serão consideradas.')
+
+    susep_seg = form_susep.multiselect('Seguradoras', top_seguradoras, default=None, placeholder='Selecionar seguradoras', key='seguradora_psr')
+    enviar_form_susep = form_susep.form_submit_button('Selecionar Seguradoras')
+
+    if len(susep_seg) > 0:
+        susepQ2 = susepQ.query("seguradora.isin(@susep_seg)")
+    else:
+        susepQ2 = susepQ
+
+
+
+    susep_met_1, susep_met_2 = col_susep2.columns([1, 1])
+    susep_met_1.metric('Prêmios Diretos', number_to_human(susepQ2.premio_dir.sum()))
+    susep_met_2.metric('Sinistro Diretos', number_to_human(susepQ2.sin_dir.sum()))
+    susep_met_1.metric('Prêmios Retidos', number_to_human(susepQ2.premio_ret.sum()))
+    susep_met_2.metric('Prêmios Retidos (Líquido)', number_to_human(susepQ2.prem_ret_liq.sum()))
+    susep_met_1.metric('Salvados de Sinistros', number_to_human(susepQ2.salvados.sum()))
+    susep_met_2.metric('Recuperações', number_to_human(susepQ2.recuperacao.sum()))
+
+    susep_tab1, susep_tab2 = col_susep1.tabs(['Prêmios e Sinsitros', 'Ramos do Seguro Rural'])
+
+    bar_susep = susepQ2.groupby([susepQ2.data.dt.year, susepQ2.data.dt.month], as_index=True)[['premio_dir', 'sin_dir']].sum()
+    bar_susep = bar_susep.reset_index(level=0).rename(columns={'data': 'Ano'})
+    bar_susep = bar_susep.reset_index(level=0).rename(columns={'data': 'Mês'})
+    bar_susep.Mês = bar_susep.Mês.astype(str).map(meses)
+    bar_susep.Ano = bar_susep.Ano.astype(str)
+    bar_susep['Período'] = bar_susep[['Mês', 'Ano']].agg('-'.join, axis=1)
+    bar_susep = bar_susep.drop(['Mês', 'Ano'], axis=1)
+    bar_susep = bar_susep.rename(columns={'premio_dir': 'Prêmios Diretos', 'sin_dir': 'Sinistros Diretos'})
+    susepBar = px.bar(bar_susep, x='Período', y=['Prêmios Diretos', 'Sinistros Diretos'], barmode='group', labels={'value': 'Valor', 'variable': 'Tipo', 'Período': 'Período'})
+
+    susep_tab1.write(f'**Prêmios e Sinistros diretos ({meses[str(dt_inicial_psr.month)]} {dt_inicial_psr.year} a {meses[str(dt_final_psr.month)]} {dt_final_psr.year})**')
+    susep_tab1.plotly_chart(susepBar, use_container_width=True)
+    
+
+    susep_cols = {
+        'premio_dir': 'Prêmios Diretos',
+        'premio_ret': 'Prêmios Retidos',
+        'prem_ret_liq': 'Prêmios Retidos (Líquido)',
+        'sin_dir': 'Sinistros Diretos',
+        'salvados': 'Salvados',
+        'recuperacao': 'Recuperações'
+    }
+    inv_susep_cols = {v: k for k, v in susep_cols.items()}
+    met_selecionada = susep_tab2.selectbox('Métrica', list(susep_cols.values()))
+
+    susep_tab2.write(f'**Representatividade dos Tipos de Seguro no valor dos {met_selecionada} ({meses[str(dt_inicial_psr.month)]} {dt_inicial_psr.year} a {meses[str(dt_final_psr.month)]} {dt_final_psr.year})**')
+
+    susepPie = susepQ2.groupby(['ramo'])[inv_susep_cols[met_selecionada]].sum()
+    susepPie = px.pie(
+        susepPie,
+        values=inv_susep_cols[met_selecionada],
+        names=susepPie.index
+    )
+    susepPie.update_layout(
+        legend=dict(font=dict(size=16)),
+        legend_title=dict(font=dict(size=14), text='Tipo de Seguro')
+    )
+    susep_tab2.plotly_chart(susepPie, use_container_width=True)
+
    
 
     # DATAFRAME
-    psrQ2_2 = psrQ2
-    if len(psrQ2_2) > 0:
-        if tipologia_selecionada_psr != 'Todos os Eventos':
-            psrQ2_2 = psrQ2.query("descricao_tipologia == @tipologia_selecionada_psr")
+    if len(psrQ2) > 0:
+        # if tipologia_selecionada_psr != 'Todos os Eventos':
+        #     psrQ2_2 = psrQ2.query("descricao_tipologia == @tipologia_selecionada_psr")
+        if len(cultura_psr) > 0:
+            psrQ2_2 = psrQ2.query("cultura.isin(@cultura_psr)")
+        else:
+            psrQ2_2 = psrQ2
 
         print(f'psrQ2_2:\n{psrQ2_2.head()}')
         psrG_muni = psrQ2_2.groupby('municipio').agg({
