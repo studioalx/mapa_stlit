@@ -11,11 +11,11 @@ import plotly.subplots as sp
 from datetime import date
 
 # -------------------- CONFIGURAÇÕES ----------------------
-titulo_pagina = 'Painel IRC :bar_chart:'
+titulo_pagina = 'Mapa de Eventos Climáticos :world_map:'
 # titulo_pagina = 'Mapa de Eventos Climáticos'
 layout = 'wide'
 # st.set_page_config(layout=layout)
-st.set_page_config(page_title='Painel IRC', layout=layout)
+st.set_page_config(page_title='Mapa de Eventos Climáticos', layout=layout)
 st.title(titulo_pagina)
 # ---------------------------------------------------------
 
