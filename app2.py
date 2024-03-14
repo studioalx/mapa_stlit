@@ -6,7 +6,8 @@ import pandas as pd
 import streamlit as st
 import geopandas as gpd
 import plotly.express as px
-import plotly.graph_objects as gov
+import pyarrow
+# import plotly.graph_objects as gov
 import plotly.subplots as sp
 from datetime import date
 
@@ -19,6 +20,11 @@ st.set_page_config(page_title='Mapa de Eventos Climáticos', layout=layout)
 st.title(titulo_pagina)
 # ---------------------------------------------------------
 
+@st.cache_resource
+def single():
+    pd.set_option('compute.use_numexpr', False)
+
+single()
 
 
 # FUNÇÕES
@@ -45,12 +51,12 @@ def filtra_geojson(geojson, iso, prop='codarea'):
 
 @st.cache_data
 def carrega_dados(caminho_arquivo):
-    df = pd.read_csv(caminho_arquivo)
+    df = pd.read_csv(caminho_arquivo, engine='pyarrow', dtype_backend='pyarrow')
     return df
 
 @st.cache_data
 def carrega_parquet(caminho_arquivo):
-    df = pd.read_parquet(caminho_arquivo)
+    df = pd.read_parquet(caminho_arquivo, engine='pyarrow', dtype_backend='pyarrow')
     return df
 
 @st.cache_data
@@ -158,17 +164,21 @@ def cria_mapa(df, malha, locais='ibge', cor='ocorrencias', tons=None, tons_midpo
 
 
 # VARIAVEIS
-dados_susep = carrega_parquet('susep_agro.parquet')
 dados_atlas = carrega_parquet('desastres_latam2.parquet')
 dados_merge = carrega_parquet('area2.parquet')
 coord_uf = carrega_parquet('coord_uf.parquet')
-coord_latam = carrega_parquet('coord_latam3.parquet')
 coord_muni = carrega_parquet('coord_muni.parquet')
 pop_pib = carrega_parquet('pop_pib_muni.parquet')
-pop_pib_uf = carrega_parquet('pop_pib_latam.parquet')
-malha_america = carrega_geojson('malha_latam.json')
-malha_brasil = carrega_geojson('malha_brasileira.json')
-psr = carrega_parquet('PSR_COMPLETO.parquet')
+# pop_pib_uf = carrega_parquet('pop_pib_latam.parquet')
+# malha_america = carrega_geojson('malha_latam.json')
+# malha_brasil = carrega_geojson('malha_brasileira.json')
+
+# dados_susep = carrega_parquet('susep_agro.parquet')
+# psr = carrega_parquet('PSR_COMPLETO.parquet')
+# psr.seguradora = psr.seguradora.map(seg)
+# psr.pe_taxa = psr.pe_taxa * 100
+
+print(dados_atlas.info())
 
 
 estados = {
@@ -303,8 +313,6 @@ seg = {
     'EZZE Seguros S.A.': 'EZZE Seguros',
     'Itaú XL Seguros Corporativos S.A': 'Itaú XL Seguros',
 }
-psr.seguradora = psr.seguradora.map(seg)
-psr.pe_taxa = psr.pe_taxa * 100
 
 # COLUNAS
 tabs = st.tabs(['UF do Brasil', 'Agro', 'América Latina', 'Climatologia', 'Créditos'])
@@ -567,6 +575,11 @@ with tabs[0]:
 
 
 with tabs[1]:
+    dados_susep = carrega_parquet('susep_agro.parquet')
+    psr = carrega_parquet('PSR_COMPLETO.parquet')
+    psr.seguradora = psr.seguradora.map(seg)
+    psr.pe_taxa = psr.pe_taxa * 100
+
     tipologias_psr = sorted(psr.descricao_tipologia.unique()[1:].tolist())
 
     secao1_agro = st.container()
@@ -604,7 +617,9 @@ with tabs[1]:
     lr['loss_ratio'] = lr.valor_indenizacao / (lr.valor_premio + lr.valor_subvencao)
 
     # metrica_psr_uf1, metrica_psr_uf2 = col_metrics.columns([1, 1])
-    col_config3.metric('Total de Apólices', len(psrQ3.num_apolice))
+    col_config3.metric('Total de Apólices', psrQ3.num_apolice.nunique())
+    # print(f'LEN APOL: {len(psrQ3.num_apolice)}')
+    # col_config3.metric('Total de Apólices', len(psrQ3.num_apolice))
     # print(psrQ3.num_apolice.nunique())
     lr_metric = f'{lr.loss_ratio.multiply(100).astype(int).values[0]}%' if not psrQ3.empty else '0%'
     col_config3.metric(f'Índice de Sinistralidade', lr_metric)
@@ -732,7 +747,6 @@ with tabs[1]:
 
     susepQ = dados_susep.query("uf == @uf_psr & data >= @dt_inicial_psr & data < @dt_final_psr")
     top_seguradoras = susepQ.groupby(['seguradora'], as_index=False)['premio_dir'].sum().sort_values('premio_dir', ascending=False).seguradora.tolist()
-    print(top_seguradoras[:5])
     
 
 
@@ -749,13 +763,19 @@ with tabs[1]:
     psrQ2 = psrQ1.query("descricao_tipologia != '-'")
     if tipologia_selecionada_psr != 'Todos os Eventos':
         psrQ2 = psrQ1.query("descricao_tipologia == @tipologia_selecionada_psr")
+
+    if len(cultura_psr) > 0:
+        psrQ2_2 = psrQ2.query("cultura.isin(@cultura_psr)")
+    else:
+        psrQ2_2 = psrQ2
+
     # else:
     #     psrQ2 = psrQ1.query("descricao_tipologia != '-'")
 
 
 
     # AREA SEGURADA
-    sin = psrQ2.groupby(['ibge'], as_index=False).size()
+    sin = psrQ2_2.groupby(['ibge'], as_index=False).size()
     sin_merge = merge_muni_psr.merge(sin, how='left', left_on='code_muni', right_on='ibge').rename(columns={'size': 'sinistros'})
     sin_merge.sinistros = sin_merge.sinistros.fillna(0)
     sin_merge.ibge = sin_merge.ibge.fillna('-')
@@ -793,7 +813,7 @@ with tabs[1]:
     # METRICAS2
     col_metrics_col1, col_metrics_col2 = col_metrics2.columns([1, 1])
     col_metrics_col1.metric(f'Ocorrências Reportadas de {tipologia_selecionada_psr}', len(atlas_psr))
-    col_metrics_col2.metric(f'Sinistros de {tipologia_selecionada_psr}', len(psrQ2))
+    col_metrics_col2.metric(f'Sinistros de {tipologia_selecionada_psr}', len(psrQ2_2))
 
 
 
@@ -886,15 +906,9 @@ with tabs[1]:
    
 
     # DATAFRAME
-    if len(psrQ2) > 0:
-        # if tipologia_selecionada_psr != 'Todos os Eventos':
-        #     psrQ2_2 = psrQ2.query("descricao_tipologia == @tipologia_selecionada_psr")
-        if len(cultura_psr) > 0:
-            psrQ2_2 = psrQ2.query("cultura.isin(@cultura_psr)")
-        else:
-            psrQ2_2 = psrQ2
+    if len(psrQ2_2) > 0:
 
-        print(f'psrQ2_2:\n{psrQ2_2.head()}')
+        # print(f'psrQ2_2:\n{psrQ2_2.head()}')
         psrG_muni = psrQ2_2.groupby('municipio').agg({
             'descricao_tipologia': 'count',
             # 'NM_CULTURA_GLOBAL': lambda x: x.mode().iloc[0],
@@ -902,7 +916,7 @@ with tabs[1]:
             'prod_segurada': 'mean',
             'seguradora': lambda x: x.mode().iloc[0],
         }).reset_index()
-        print(f'psrG_muni:\n{psrG_muni.head()}')
+        # print(f'psrG_muni:\n{psrG_muni.head()}')
 
         psrApol_muni = psrQ2_2.groupby(['municipio'], as_index=False).size().merge(psrQ1.groupby(['municipio'], as_index=False)['num_apolice'].nunique(), how='left', on='municipio')
         psrG_muni['apolices'] = psrApol_muni['num_apolice']
@@ -1004,6 +1018,11 @@ with tabs[1]:
 
 
 with tabs[2]:
+    pop_pib_uf = carrega_parquet('pop_pib_latam.parquet')
+    malha_america = carrega_geojson('malha_latam.json')
+    malha_brasil = carrega_geojson('malha_brasileira.json')
+    coord_latam = carrega_parquet('coord_latam3.parquet')
+
     secao1_latam = st.container()
     col_mapa_br1, col_dados_br1 = secao1_latam.columns([1, 1], gap='large')
     col_dados_br1.header('Parâmetros de Análise')
