@@ -575,7 +575,7 @@ with tabs[0]:
 
 
 with tabs[1]:
-    dados_susep = carrega_parquet('susep_agro.parquet')
+    dados_susep = carrega_parquet('susep_agro2.parquet')
     psr = carrega_parquet('PSR_COMPLETO.parquet')
     psr.seguradora = psr.seguradora.map(seg)
     psr.pe_taxa = psr.pe_taxa * 100
@@ -593,7 +593,7 @@ with tabs[1]:
     estado_psr = col_config1.selectbox('Estado', estados.keys(), index=17, key='uf_psr')
     uf_psr = estados[estado_psr]
     psrQ1 = psr.query("uf == @uf_psr")
-    dt_inicial_psr, dt_final_psr = col_config2.date_input('Data das Apólices', (date(2020, 7, 1), date(2021, 7, 1)), date(2006, 1, 7), date(2021, 12, 30), format="DD/MM/YYYY")
+    dt_inicial_psr, dt_final_psr = col_config2.date_input('Data das Apólices', (date(2021, 1, 1), date(2021, 12, 31)), date(2006, 1, 7), date(2021, 12, 31), format="DD/MM/YYYY")
     # ano_psr = col_config2.selectbox('Ano de Subscrição', sorted(psrQ1.ano.unique().tolist(), reverse=True), index=0, key='ano_psr')
     psrQ1 = psrQ1.query("data_apolice >= @dt_inicial_psr & data_apolice < @dt_final_psr")
     # psrQ1 = psrQ1.query("ano == @ano_psr")
@@ -838,8 +838,10 @@ with tabs[1]:
     secao_susep = st.container()
     col_susep1, col_susep2 = secao_susep.columns([1, 1])
 
-    col_susep1.header('Análise Gráfica dos Valores Financeiros (SUSEP)')
-    col_susep2.header('Métricas Financeiras (SUSEP)')
+    col_susep1.header('Análise Gráfica dos Valores Financeiros')
+    col_susep2.header('Métricas Financeiras')
+
+    col_susep1.caption('Dados da Superintendência de Seguros Privados (SUSEP).')
 
     form_susep = col_susep2.form('form_susep', border=False, clear_on_submit=False)
     form_susep.caption('As seguradoras estão listadas abaixo por ordem decrescente de prêmios diretos. Se nenhuma seguradora for selecionada, todas serão consideradas.')
