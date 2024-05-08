@@ -1312,7 +1312,7 @@ with tabs[-1]:
 
     col_creditos2.subheader('Developed by Instituto de Riscos Climáticos')
     col_creditos2.markdown('''
-    **Supervisors:** Carlos Teixeira, Reinaldo Marques & Roberto Westenberger
+    **Fundador:** ANTONIO NERIS MACHADO JÚNIOR
 
     **Researchers:** Luiz Otávio & Karoline Branco
 
