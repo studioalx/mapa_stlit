@@ -1,4 +1,4 @@
-world_mapimport json
+import json
 import math
 import requests
 import numpy as np
