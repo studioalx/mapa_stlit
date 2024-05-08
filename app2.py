@@ -1315,12 +1315,10 @@ with tabs[-1]:
     **Fundador:** ANTONIO NERIS MACHADO JÚNIOR
 
     **Ao apresentar soluções diversificadas nas áreas de saúde, 
-
-    **educação, tecnologia, gestão da informação e qualificação profissional, 
-                        
-    **desenvolvemos e apresentamos aos nossos clientes produtos e soluções que 
-
-    **buscam gerar economia de recursos, rapidez na interação com clientes, melhoria nos processos de trabalho, aumento de vendas e inovação organizacional.
+    educação, tecnologia, gestão da informação e qualificação profissional,                         
+    desenvolvemos e apresentamos aos nossos clientes produtos e soluções que 
+    buscam gerar economia de recursos, rapidez na interação com clientes, 
+    melhoria nos processos de trabalho, aumento de vendas e inovação organizacional.
                         
     #### Source
     - **Atlas Digital de Desastres no Brasil** - [www.atlasdigital.mdr.gov.br/](http://atlasdigital.mdr.gov.br/).
