@@ -1314,11 +1314,13 @@ with tabs[-1]:
     col_creditos2.markdown('''
     **Fundador:** ANTONIO NERIS MACHADO JÚNIOR
 
-    **Researchers:** Luiz Otávio & Karoline Branco
+    **Ao apresentar soluções diversificadas nas áreas de saúde, 
 
-    **Data Scientists:**  Lucas Lima & Paulo Cesar
+    **educação, tecnologia, gestão da informação e qualificação profissional, 
                         
-    **Risk Scientists:** Ana Victoria & Beatriz Pimenta
+    **desenvolvemos e apresentamos aos nossos clientes produtos e soluções que 
+
+    **buscam gerar economia de recursos, rapidez na interação com clientes, melhoria nos processos de trabalho, aumento de vendas e inovação organizacional.
                         
     #### Source
     - **Atlas Digital de Desastres no Brasil** - [www.atlasdigital.mdr.gov.br/](http://atlasdigital.mdr.gov.br/).
