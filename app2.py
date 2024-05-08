@@ -1320,9 +1320,4 @@ with tabs[-1]:
     buscam gerar economia de recursos, rapidez na interação com clientes, 
     melhoria nos processos de trabalho, aumento de vendas e inovação organizacional.
                         
-    #### Source
-    - **Atlas Digital de Desastres no Brasil** - [www.atlasdigital.mdr.gov.br/](http://atlasdigital.mdr.gov.br/).
-    - **EM-DAT, CRED / UCLouvain, 2024, Brussels, Belgium** – [www.emdat.be](https://www.emdat.be/).
-    - **SES - Sistema de Estatística da SUSEP** - [https://www2.susep.gov.br/menuestatistica/SES/principal.aspx](https://www2.susep.gov.br/menuestatistica/SES/principal.aspx)
-    - **Sistema de Subvenção Econômica ao Prêmio do Seguro Rural** - SISSER - Portal de Dados Abertos do Ministério da Agricultura e Pecuária - [dados.agricultura.gov.br/dataset/sisser3](https://dados.agricultura.gov.br/dataset/sisser3).
-    ''')
+    
