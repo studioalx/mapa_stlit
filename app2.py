@@ -12,7 +12,7 @@ import plotly.subplots as sp
 from datetime import date
 
 # -------------------- CONFIGURAÇÕES ----------------------
-titulo_pagina = 'Eventos Climáticos ATÉ 2024 - BY ® INTEGRAL SOLUÇÕES E GESTÃO :world_map:'
+titulo_pagina = 'Eventos Climáticos ATÉ 2024 - BY ® INTEGRAL SOLUÇÕES E GESTÃO ::'
 # titulo_pagina = 'Mapa de Eventos Climáticos'
 layout = 'wide'
 # st.set_page_config(layout=layout)
