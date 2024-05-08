@@ -1304,10 +1304,10 @@ with tabs[2]:
 
 
 with tabs[-1]:
-    col_creditos1, col_creditos2 = st.columns([1, 1], gap='large')
+   col_creditos1, col_creditos2 = st.columns([1, 1], gap='large')
 
-    col_creditos1.subheader('ANTONIO NERIS MACHADO JÚNIOR (https://www.https://integralsolucao.com.br/)')
-    col_creditos1.caption('A integral solução em gestão surgiu da necessidade de apresentar soluções que visam integrar e atender diferentes áreas de atuação, tanto pública quanto privada.')
+    col_creditos1.subheader('Founded by [IRB(Re)](https://www.irbre.com/)')
+    col_creditos1.caption('A leading figure in the Brazilian reinsurance market, with over 80 years of experience and a complete portfolio of solutions for the market.')
     col_creditos1.image('int.jpg', use_column_width=True)
 
     col_creditos2.subheader('Developed by Instituto de Riscos Climáticos')
