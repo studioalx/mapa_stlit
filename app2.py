@@ -1307,7 +1307,7 @@ with tabs[-1]:
     col_creditos1, col_creditos2 = st.columns([1, 1], gap='large')
 
     col_creditos1.subheader('Founded by [IRB(Re)](https://www.irbre.com/)')
-    col_creditos1.caption('A A integral solução em gestão surgiu da necessidade de apresentar soluções que visam integrar e atender diferentes áreas de atuação, tanto pública quanto privada.')
+    col_creditos1.caption('A A quanto privada.')
     col_creditos1.image('irb.jpg', use_column_width=True)
 
     col_creditos2.subheader('Developed by Instituto de Riscos Climáticos')
