@@ -1308,7 +1308,7 @@ with tabs[-1]:
 
     col_creditos1.subheader('Founded by [IRB(Re)](https://www.irbre.com/)')
     col_creditos1.caption('A leading figure in the Brazilian reinsurance market, with over 80 years of experience and a complete portfolio of solutions for the market.')
-    col_creditos1.image('irb.jpg', use_column_width=True)
+    col_creditos1.image('int.jpeg', use_column_width=True)
 
     col_creditos2.subheader('Developed by Instituto de Riscos Climáticos')
     col_creditos2.markdown('''
