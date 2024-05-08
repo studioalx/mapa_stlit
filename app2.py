@@ -1310,7 +1310,7 @@ with tabs[-1]:
     col_creditos1.caption('A A integral solução em gestão surgiu da necessidade de apresentar soluções que visam integrar e atender diferentes áreas de atuação,t.')
     col_creditos1.image('int.jpeg', use_column_width=True)
 
-    col_creditos2.subheader('Developed by Instituto de Riscos Climáticos')
+    col_creditos2.subheader('_____________________________________________________')
     col_creditos2.markdown('''
     **Fundador:** ANTONIO NERIS MACHADO JÚNIOR
 
